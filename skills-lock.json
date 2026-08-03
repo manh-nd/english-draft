@@ -31,6 +31,24 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "363cb0f53b0b431e7c00086ad1f823500b7e1b70b5616ee969c979f0934e9e6e"
     },
+    "gemini-api-dev": {
+      "source": "google-gemini/gemini-skills",
+      "sourceType": "github",
+      "skillPath": "skills/gemini-api-dev/SKILL.md",
+      "computedHash": "8438fa9bfc123971a629f542076e839409b6b027a2860dd9bf6760682a68f78a"
+    },
+    "gemini-interactions-api": {
+      "source": "google-gemini/gemini-skills",
+      "sourceType": "github",
+      "skillPath": "skills/gemini-interactions-api/SKILL.md",
+      "computedHash": "c1cfc541b446af2fb7db0ea0ed01e7f8670c848eaa9516233cd0ed47d4dc4e68"
+    },
+    "gemini-live-api-dev": {
+      "source": "google-gemini/gemini-skills",
+      "sourceType": "github",
+      "skillPath": "skills/gemini-live-api-dev/SKILL.md",
+      "computedHash": "d4d52c9a639bd79fe5eeef0722a9d4d6ed256b99172375b60e96920c8b111836"
+    },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
