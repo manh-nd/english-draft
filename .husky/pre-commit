@@ -1,4 +1,4 @@
-npx lint-staged
-npx tsc --noEmit
-npx eslint
-bun test
+bunx lint-staged
+bun run typecheck
+bun run lint
+bun run test
