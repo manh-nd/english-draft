@@ -1,17 +1,12 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Agent Rules & Skills
 
-# This is NOT the Next.js you know
+## Next.js
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+Breaking changes apply — APIs, conventions, and file structure differ from training data. See `docs/agents/nextjs.md`.
 
 ## Package Manager
 
-This project uses **`bun`** exclusively as its package manager (instead of `npm`, `yarn`, or `pnpm`).
-
-- **Install packages**: `bun add <package>` (or `bun add -d <package>` for devDependencies)
-- **Run scripts**: `bun run <script>` (e.g., `bun run dev`, `bun run build`, `bun run typecheck`, `bun run lint`, `bun run test`)
-- **Run CLI tools**: `bunx <tool>` or `bunx --bun <tool>` (e.g., `bunx --bun shadcn@latest ...`, `bunx lint-staged`)
+This project uses **`bun`** exclusively as its package manager. See `docs/agents/package-manager.md`.
 
 ## Agent skills
 
@@ -29,14 +24,12 @@ Single-context (`CONTEXT.md` + `docs/adr/`). See `docs/agents/domain.md`.
 
 ### UI & Components
 
-Use the `shadcn` skill (`.agents/skills/shadcn/SKILL.md`) when adding, searching, styling, building, debugging, or composing UI components and design systems.
+Use the `shadcn` skill (`.agents/skills/shadcn/SKILL.md`). See `docs/agents/ui.md`.
 
 ### Gemini API & AI
 
-- Use the `gemini-api-dev` skill (`.agents/skills/gemini-api-dev/SKILL.md`) when building applications with Gemini models, working with multimodal content, function calling, structured outputs, or SDK usage (`@google/genai` / `google-genai`).
-- Use the `gemini-interactions-api` skill (`.agents/skills/gemini-interactions-api/SKILL.md`) for multi-turn chat, stateful conversations, managed agents (Antigravity Agent, Deep Research), or migrating from `generateContent`.
-- Use the `gemini-live-api-dev` skill (`.agents/skills/gemini-live-api-dev/SKILL.md`) when building real-time, low-latency bidirectional audio/video/text streaming applications over WebSockets or Live Translate.
+Gemini 3.6 Flash, Interactions API, and Live API skills. See `docs/agents/gemini.md`.
 
 ### Rich Text Editor
 
-Use the `tiptap` skill (`.agents/skills/tiptap/SKILL.md`) when building or modifying a rich text editor with Tiptap, installing Tiptap extensions, or implementing features like collaboration, comments, AI, or document conversion.
+Tiptap rich text editor skill. See `docs/agents/tiptap.md`.
