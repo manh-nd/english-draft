@@ -1,16 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, test, describe, mock } from "bun:test";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
-const mockReturning = mock(() => []);
-const mockWhere = mock(() => ({ returning: mockReturning }));
-const mockOrderBy = mock(() => []);
-const mockFrom = mock(() => ({
-  where: mock(() => ({ orderBy: mockOrderBy })),
+const mockReturning = mock<() => any>(() => []);
+const mockWhere = mock<() => any>(() => ({ returning: mockReturning }));
+const mockOrderBy = mock<() => any>(() => []);
+const mockFrom = mock<() => any>(() => ({
+  where: mock<() => any>(() => ({ orderBy: mockOrderBy })),
 }));
-const mockSelect = mock(() => ({ from: mockFrom }));
-const mockValues = mock(() => ({ returning: mockReturning }));
-const mockSet = mock(() => ({ where: mockWhere }));
+const mockSelect = mock<() => any>(() => ({ from: mockFrom }));
+const mockValues = mock<() => any>(() => ({ returning: mockReturning }));
+const mockSet = mock<() => any>(() => ({ where: mockWhere }));
 
 const mockDB = {
   select: mockSelect,

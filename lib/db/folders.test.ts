@@ -1,22 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, test, describe, mock } from "bun:test";
 
 // ─── Mock the db module ────────────────────────────────────────────────────────
 // We mock at the module level so every import of "@/db" in lib/db/folders.ts
 // gets the same fake client.
 
-const mockReturning = mock(() => []);
-const mockWhere = mock(() => ({ returning: mockReturning }));
-const mockOrderBy = mock(() => []);
-const mockValues = mock(() => ({ returning: mockReturning }));
-const mockSet = mock(() => ({ where: mockWhere }));
+const mockReturning = mock<() => any>(() => []);
+const mockWhere = mock<() => any>(() => ({ returning: mockReturning }));
+const mockOrderBy = mock<() => any>(() => []);
+const mockValues = mock<() => any>(() => ({ returning: mockReturning }));
+const mockSet = mock<() => any>(() => ({ where: mockWhere }));
 
 const mockDB = {
-  select: mock(() => ({
-    from: mock(() => ({ where: mock(() => ({ orderBy: mockOrderBy })) })),
+  select: mock<() => any>(() => ({
+    from: mock<() => any>(() => ({
+      where: mock<() => any>(() => ({ orderBy: mockOrderBy })),
+    })),
   })),
-  insert: mock(() => ({ values: mockValues })),
-  update: mock(() => ({ set: mockSet })),
-  delete: mock(() => ({ where: mockWhere })),
+  insert: mock<() => any>(() => ({ values: mockValues })),
+  update: mock<() => any>(() => ({ set: mockSet })),
+  delete: mock<() => any>(() => ({ where: mockWhere })),
 };
 
 mock.module("@/db", () => ({ db: mockDB }));

@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, test, describe, mock } from "bun:test";
 // ─── Mock require-session ────────────────────────────────────────────────────
-const mockRequireSession = mock(() => ({ userId: "user-1" }));
+const mockRequireSession = mock<() => any>(() => ({ userId: "user-1" }));
 mock.module("@/lib/api/require-session", () => ({
   requireSession: mockRequireSession,
 }));
 // ─── Mock folders DAL ────────────────────────────────────────────────────────
-const mockListFolders = mock(() => []);
-const mockCreateFolder = mock(() => null);
+const mockListFolders = mock<() => any>(() => []);
+const mockCreateFolder = mock<() => any>(() => null);
 mock.module("@/lib/db/folders", () => ({
   listFolders: mockListFolders,
   createFolder: mockCreateFolder,
@@ -62,19 +63,20 @@ describe("GET /api/folders", () => {
   });
 });
 describe("POST /api/folders", () => {
-  const makeReq = (body: unknown) => ({
-    json: () => Promise.resolve(body),
-  });
+  const makeReq = (body: unknown) =>
+    ({
+      json: () => Promise.resolve(body),
+    }) as any;
   test("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockReturnValueOnce(
       NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
-    const res = await POST(makeReq({ name: "Work" }) as unknown);
+    const res = await POST(makeReq({ name: "Work" }) as any);
     expect(res.status).toBe(401);
   });
   test("returns 400 when name is missing", async () => {
     mockRequireSession.mockReturnValueOnce({ userId: USER_ID });
-    const res = await POST(makeReq({}) as unknown);
+    const res = await POST(makeReq({}) as any);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe("name is required");
@@ -82,7 +84,7 @@ describe("POST /api/folders", () => {
   test("creates and returns folder with 201", async () => {
     mockRequireSession.mockReturnValueOnce({ userId: USER_ID });
     mockCreateFolder.mockReturnValueOnce(fakeFolder);
-    const res = await POST(makeReq({ name: "Work" }) as unknown);
+    const res = await POST(makeReq({ name: "Work" }) as any);
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body).toEqual(fakeFolder);
