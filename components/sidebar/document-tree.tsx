@@ -122,10 +122,11 @@ function InlineRename({
 
 // ─── Document Item (sortable) ─────────────────────────────────────────────────
 
-function DocumentItem({
+export function DocumentItem({
   doc,
   isActive,
   folders,
+  isSubItem = false,
   onRename,
   onDelete,
   onMove,
@@ -134,6 +135,7 @@ function DocumentItem({
   doc: SidebarDocument;
   isActive: boolean;
   folders: SidebarFolder[];
+  isSubItem?: boolean;
   onRename: (title: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onMove: (folderId: string | null) => Promise<void>;
@@ -157,14 +159,13 @@ function DocumentItem({
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const MenuItem = isSubItem ? SidebarMenuSubItem : SidebarMenuItem;
+  const MenuButton = isSubItem ? SidebarMenuSubButton : SidebarMenuButton;
+
   return (
     <>
-      <SidebarMenuSubItem ref={setNodeRef} style={style}>
-        <SidebarMenuSubButton
-          isActive={isActive}
-          onClick={onClick}
-          className="group/doc"
-        >
+      <MenuItem ref={setNodeRef} style={style}>
+        <MenuButton isActive={isActive} onClick={onClick} className="group/doc">
           {/* Drag handle */}
           <span
             {...attributes}
@@ -189,7 +190,7 @@ function DocumentItem({
           ) : (
             <span className="truncate">{doc.title || "Untitled"}</span>
           )}
-        </SidebarMenuSubButton>
+        </MenuButton>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -240,7 +241,7 @@ function DocumentItem({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </SidebarMenuSubItem>
+      </MenuItem>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -388,6 +389,7 @@ function FolderItem({
                       doc={doc}
                       isActive={doc.id === activeDocumentId}
                       folders={allFolders}
+                      isSubItem={true}
                       onRename={(t) => onRenameDoc(doc.id, t)}
                       onDelete={() => onDeleteDoc(doc.id)}
                       onMove={(fid) => onMoveDoc(doc.id, fid)}
@@ -552,17 +554,17 @@ export function DocumentTree({
 
           {/* ── Root Documents ──────────────────────────────────── */}
           {rootDocs.map((doc) => (
-            <SidebarMenuItem key={doc.id}>
-              <DocumentItem
-                doc={doc}
-                isActive={doc.id === activeDocumentId}
-                folders={folders}
-                onRename={(t) => onRenameDocument(doc.id, t)}
-                onDelete={() => onDeleteDocument(doc.id)}
-                onMove={(fid) => onMoveDocument(doc.id, fid)}
-                onClick={() => navigate(doc.id)}
-              />
-            </SidebarMenuItem>
+            <DocumentItem
+              key={doc.id}
+              doc={doc}
+              isActive={doc.id === activeDocumentId}
+              folders={folders}
+              isSubItem={false}
+              onRename={(t) => onRenameDocument(doc.id, t)}
+              onDelete={() => onDeleteDocument(doc.id)}
+              onMove={(fid) => onMoveDocument(doc.id, fid)}
+              onClick={() => navigate(doc.id)}
+            />
           ))}
 
           {/* Invisible drop zone for root when dragging */}

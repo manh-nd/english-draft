@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sun, Moon, Monitor } from "lucide-react";
@@ -20,13 +21,35 @@ const labels: Record<Theme, string> = {
 };
 
 export function ThemeToggle() {
+  const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Standard React hydration guard pattern */
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = (theme as Theme | undefined) ?? "system";
   const next = themes[(themes.indexOf(current) + 1) % themes.length];
   const Icon = icons[current];
 
   const label = `Current: ${labels[current]}. Click for ${labels[next]}`;
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start gap-2"
+        disabled
+        aria-label="Toggle theme"
+      >
+        <Monitor data-icon="inline-start" />
+        <span>System</span>
+      </Button>
+    );
+  }
 
   return (
     <Button
