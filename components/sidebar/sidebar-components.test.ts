@@ -1,5 +1,6 @@
 import { expect, test, describe, mock, beforeAll } from "bun:test";
 import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 // Mock next/navigation & next-themes
 mock.module("next/navigation", () => ({
@@ -65,7 +66,9 @@ beforeAll(() => {
 });
 
 import { CommandDialog, CommandInput, Command } from "@/components/ui/command";
-import { DocumentItem } from "@/components/sidebar/document-tree";
+import { DocumentTree } from "@/components/sidebar/document-tree";
+import { DocumentItem } from "@/components/sidebar/document-item";
+import { SearchBar } from "@/components/sidebar/search-bar";
 import { ThemeToggle } from "@/components/sidebar/theme-toggle";
 
 describe("Sidebar UI Components - Regression & Hydration Tests", () => {
@@ -144,6 +147,41 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
       expect(toggleElement).toBeDefined();
       // Before mounted (useState initial false), it renders disabled button with System text to match SSR
       expect(toggleElement.props.disabled).toBe(true);
+    });
+  });
+
+  describe("Sidebar composition standards", () => {
+    test("search exposes one grouped control with an accessible clear action", () => {
+      const markup = renderToStaticMarkup(
+        React.createElement(SearchBar, {
+          value: "draft",
+          onChange: () => {},
+        })
+      );
+
+      expect(markup).toContain('data-slot="input-group"');
+      expect(markup).toContain('data-slot="input-group-control"');
+      expect(markup).toContain('aria-label="Clear search"');
+    });
+
+    test("an empty document tree renders the standard empty state", () => {
+      const markup = renderToStaticMarkup(
+        React.createElement(DocumentTree, {
+          folders: [],
+          documents: [],
+          filter: "",
+          onCreateDocument: async () => {},
+          onRenameDocument: async () => {},
+          onDeleteDocument: async () => {},
+          onMoveDocument: async () => {},
+          onCreateFolder: async () => {},
+          onRenameFolder: async () => {},
+          onDeleteFolder: async () => {},
+        })
+      );
+
+      expect(markup).toContain('data-slot="empty"');
+      expect(markup).toContain("No documents yet");
     });
   });
 });

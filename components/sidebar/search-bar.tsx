@@ -1,9 +1,13 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 
 interface SearchBarProps {
   value: string;
@@ -13,27 +17,28 @@ interface SearchBarProps {
 
 export function SearchBar({ value, onChange, className }: SearchBarProps) {
   return (
-    <div className={cn("relative flex items-center", className)}>
-      <Search className="absolute left-2 size-3.5 text-muted-foreground pointer-events-none" />
-      <Input
+    <InputGroup className={cn(className)}>
+      <InputGroupInput
         id="sidebar-search"
         type="text"
         placeholder="Filter documents…"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-7 pl-7 pr-7 text-xs"
       />
+      <InputGroupAddon align="inline-start">
+        <Search />
+      </InputGroupAddon>
       {value && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute right-1 size-5 p-0"
-          onClick={() => onChange("")}
-          aria-label="Clear search"
-        >
-          <X className="size-3" />
-        </Button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            onClick={() => onChange("")}
+            aria-label="Clear search"
+          >
+            <X data-icon="inline-start" />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
-    </div>
+    </InputGroup>
   );
 }

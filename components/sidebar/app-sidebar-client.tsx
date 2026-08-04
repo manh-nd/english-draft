@@ -84,7 +84,7 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <FileText className="size-4" />
+                  <FileText />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">English Draft</span>
@@ -146,12 +146,12 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start gap-2 text-xs"
+              className="w-full justify-start"
               onClick={() => {
                 document.dispatchEvent(new CustomEvent("sidebar:new-folder"));
               }}
             >
-              <FolderPlus className="size-3.5" data-icon="inline-start" />
+              <FolderPlus data-icon="inline-start" />
               New Folder
             </Button>
           </SidebarGroupContent>
