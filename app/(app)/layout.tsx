@@ -52,7 +52,7 @@ export default async function AppLayout({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link href="/">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                     <FileText className="size-4" />
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">

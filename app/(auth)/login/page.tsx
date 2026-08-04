@@ -1,7 +1,17 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 
 // Google "G" logo SVG
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -32,30 +42,24 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
   async function handleGoogleSignIn() {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: callbackUrl,
     });
   }
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-8 px-4">
-      {/* Logo / wordmark */}
-      <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">English Draft</h1>
-        <p className="text-sm text-muted-foreground">
-          Write, get corrected, and remember — all in one place.
-        </p>
-      </div>
-
-      {/* Sign-in card */}
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-6 shadow-sm">
-        <p className="text-center text-sm font-medium text-muted-foreground">
-          Sign in to continue
-        </p>
-
+    <Card className="w-full max-w-sm">
+      <CardHeader className="text-center">
+        <CardTitle className="text-xl">English Draft</CardTitle>
+        <CardDescription>Sign in with your Google account</CardDescription>
+      </CardHeader>
+      <CardContent>
         <Button
           variant="outline"
           className="w-full"
@@ -64,11 +68,20 @@ export default function LoginPage() {
           <GoogleIcon data-icon="inline-start" />
           Continue with Google
         </Button>
-      </div>
+      </CardContent>
+      <CardFooter className="justify-center text-center">
+        <p className="text-xs text-muted-foreground">
+          By signing in, you agree to our terms of service.
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
 
-      <p className="text-center text-xs text-muted-foreground">
-        By signing in, you agree to our terms of service.
-      </p>
-    </div>
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

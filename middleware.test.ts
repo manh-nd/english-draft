@@ -1,93 +1,84 @@
 import { describe, expect, it } from "bun:test";
+import { isPublicPath, getMiddlewareAction } from "./middleware";
 
-// ---------------------------------------------------------------------------
-// Lightweight stubs — no real DB / network needed
-// ---------------------------------------------------------------------------
-
-// We test the redirect logic by extracting it into pure helper functions that
-// mirror what the middleware does, so we don't need to import the actual
-// Next.js middleware (which would require a full Next.js runtime).
-
-const PUBLIC_PATHS = ["/login", "/api/auth"];
-
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
-}
-
-/**
- * Simulate the middleware decision for a given pathname + session state.
- * Returns one of: "redirect-to-login" | "redirect-to-home" | "pass-through"
- */
-function simulateMiddleware(
-  pathname: string,
-  hasSession: boolean
-): "redirect-to-login" | "redirect-to-home" | "pass-through" {
-  // Auth API always passes through
-  if (pathname.startsWith("/api/auth")) return "pass-through";
-
-  // Unauthenticated on a protected path
-  if (!hasSession && !isPublicPath(pathname)) return "redirect-to-login";
-
-  // Authenticated user on login page
-  if (hasSession && pathname.startsWith("/login")) return "redirect-to-home";
-
-  return "pass-through";
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+const BASE_URL = "http://localhost:3000";
 
 describe("middleware redirect logic", () => {
   describe("unauthenticated requests", () => {
     it("redirects / to /login", () => {
-      expect(simulateMiddleware("/", false)).toBe("redirect-to-login");
+      const res = getMiddlewareAction("/", false, BASE_URL);
+      expect(res.action).toBe("redirect");
+      if (res.action === "redirect") {
+        expect(res.url).toBe("http://localhost:3000/login");
+      }
     });
 
-    it("redirects /documents to /login", () => {
-      expect(simulateMiddleware("/documents", false)).toBe("redirect-to-login");
+    it("redirects /documents to /login with callbackUrl", () => {
+      const res = getMiddlewareAction("/documents", false, BASE_URL);
+      expect(res.action).toBe("redirect");
+      if (res.action === "redirect") {
+        expect(res.url).toBe(
+          "http://localhost:3000/login?callbackUrl=%2Fdocuments"
+        );
+      }
     });
 
-    it("redirects nested paths to /login", () => {
-      expect(simulateMiddleware("/documents/abc-123", false)).toBe(
-        "redirect-to-login"
-      );
+    it("redirects nested paths to /login with callbackUrl", () => {
+      const res = getMiddlewareAction("/documents/abc-123", false, BASE_URL);
+      expect(res.action).toBe("redirect");
+      if (res.action === "redirect") {
+        expect(res.url).toBe(
+          "http://localhost:3000/login?callbackUrl=%2Fdocuments%2Fabc-123"
+        );
+      }
     });
 
     it("allows /login through", () => {
-      expect(simulateMiddleware("/login", false)).toBe("pass-through");
+      expect(getMiddlewareAction("/login", false, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
 
     it("allows /api/auth/signin through", () => {
-      expect(simulateMiddleware("/api/auth/signin", false)).toBe(
-        "pass-through"
-      );
+      expect(getMiddlewareAction("/api/auth/signin", false, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
 
     it("allows /api/auth/callback/google through", () => {
-      expect(simulateMiddleware("/api/auth/callback/google", false)).toBe(
-        "pass-through"
-      );
+      expect(
+        getMiddlewareAction("/api/auth/callback/google", false, BASE_URL)
+      ).toEqual({
+        action: "pass",
+      });
     });
   });
 
   describe("authenticated requests", () => {
     it("allows / through", () => {
-      expect(simulateMiddleware("/", true)).toBe("pass-through");
+      expect(getMiddlewareAction("/", true, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
 
     it("allows /documents through", () => {
-      expect(simulateMiddleware("/documents", true)).toBe("pass-through");
+      expect(getMiddlewareAction("/documents", true, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
 
     it("redirects /login to / (home)", () => {
-      expect(simulateMiddleware("/login", true)).toBe("redirect-to-home");
+      const res = getMiddlewareAction("/login", true, BASE_URL);
+      expect(res.action).toBe("redirect");
+      if (res.action === "redirect") {
+        expect(res.url).toBe("http://localhost:3000/");
+      }
     });
 
     it("allows /api/auth routes through regardless", () => {
-      expect(simulateMiddleware("/api/auth/session", true)).toBe(
-        "pass-through"
-      );
+      expect(getMiddlewareAction("/api/auth/session", true, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
   });
 

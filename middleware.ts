@@ -1,35 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getSessionCookie } from "better-auth/cookies";
 
 // Routes that don't require authentication
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+export const PUBLIC_PATHS = ["/login", "/api/auth"];
 
-function isPublicPath(pathname: string): boolean {
+export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+}
+
+export type MiddlewareAction =
+  { action: "pass" } | { action: "redirect"; url: string };
+
+export function getMiddlewareAction(
+  pathname: string,
+  hasSession: boolean,
+  baseUrl: string
+): MiddlewareAction {
+  // Auth API always passes through
+  if (pathname.startsWith("/api/auth")) {
+    return { action: "pass" };
+  }
+
+  // Unauthenticated on a protected path -> redirect to login with callbackUrl
+  if (!hasSession && !isPublicPath(pathname)) {
+    const loginUrl = new URL("/login", baseUrl);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("callbackUrl", pathname);
+    }
+    return { action: "redirect", url: loginUrl.toString() };
+  }
+
+  // Authenticated user visiting login -> redirect to app home
+  if (hasSession && pathname.startsWith("/login")) {
+    return { action: "redirect", url: new URL("/", baseUrl).toString() };
+  }
+
+  return { action: "pass" };
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const sessionCookie = getSessionCookie(request);
+  const hasSession = Boolean(sessionCookie);
 
-  // Let auth API routes through without any session check
-  if (pathname.startsWith("/api/auth")) {
-    return NextResponse.next();
-  }
+  const decision = getMiddlewareAction(pathname, hasSession, request.url);
 
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  // Unauthenticated: redirect to login (except public paths)
-  if (!session && !isPublicPath(pathname)) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Authenticated user visiting login: redirect to app
-  if (session && pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/", request.url));
+  if (decision.action === "redirect") {
+    return NextResponse.redirect(decision.url);
   }
 
   return NextResponse.next();
