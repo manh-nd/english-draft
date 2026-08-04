@@ -1,17 +1,27 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { expect, test, describe, mock } from "bun:test";
+import { expect, test, describe, mock, type Mock } from "bun:test";
+import type { Document } from "./documents";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
-const mockReturning = mock<() => any>(() => []);
-const mockWhere = mock<() => any>(() => ({ returning: mockReturning }));
-const mockOrderBy = mock<() => any>(() => []);
-const mockFrom = mock<() => any>(() => ({
-  where: mock<() => any>(() => ({ orderBy: mockOrderBy })),
+const mockReturning = mock<() => unknown[]>(() => []);
+const mockWhere = mock<() => { returning: typeof mockReturning }>(() => ({
+  returning: mockReturning,
 }));
-const mockSelect = mock<() => any>(() => ({ from: mockFrom }));
-const mockValues = mock<() => any>(() => ({ returning: mockReturning }));
-const mockSet = mock<() => any>(() => ({ where: mockWhere }));
+const mockOrderBy = mock<() => unknown[]>(() => []);
+const mockFrom = mock<
+  () => { where: Mock<() => { orderBy: typeof mockOrderBy }> }
+>(() => ({
+  where: mock(() => ({ orderBy: mockOrderBy })),
+}));
+const mockSelect = mock<() => { from: typeof mockFrom }>(() => ({
+  from: mockFrom,
+}));
+const mockValues = mock<() => { returning: typeof mockReturning }>(() => ({
+  returning: mockReturning,
+}));
+const mockSet = mock<() => { where: typeof mockWhere }>(() => ({
+  where: mockWhere,
+}));
 
 const mockDB = {
   select: mockSelect,
@@ -58,7 +68,7 @@ import {
 const USER_ID = "user-1";
 const DOC_ID = "doc-1";
 
-const fakeDoc = {
+const fakeDoc: Document = {
   id: DOC_ID,
   userId: USER_ID,
   title: "Hello World",
@@ -104,7 +114,7 @@ describe("getDocument", () => {
   test("returns the document when found", async () => {
     mockFrom.mockReturnValueOnce({
       where: mock(() => [fakeDoc]),
-    });
+    } as unknown as ReturnType<typeof mockFrom>);
     const result = await getDocument(USER_ID, DOC_ID);
     expect(result).toEqual(fakeDoc);
   });
@@ -112,7 +122,7 @@ describe("getDocument", () => {
   test("returns null when not found", async () => {
     mockFrom.mockReturnValueOnce({
       where: mock(() => []),
-    });
+    } as unknown as ReturnType<typeof mockFrom>);
     const result = await getDocument(USER_ID, "nonexistent");
     expect(result).toBeNull();
   });

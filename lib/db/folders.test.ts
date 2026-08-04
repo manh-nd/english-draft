@@ -1,25 +1,39 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { expect, test, describe, mock } from "bun:test";
+import { expect, test, describe, mock, type Mock } from "bun:test";
+import type { Folder } from "./folders";
 
 // ─── Mock the db module ────────────────────────────────────────────────────────
-// We mock at the module level so every import of "@/db" in lib/db/folders.ts
-// gets the same fake client.
 
-const mockReturning = mock<() => any>(() => []);
-const mockWhere = mock<() => any>(() => ({ returning: mockReturning }));
-const mockOrderBy = mock<() => any>(() => []);
-const mockValues = mock<() => any>(() => ({ returning: mockReturning }));
-const mockSet = mock<() => any>(() => ({ where: mockWhere }));
+const mockReturning = mock<() => unknown[]>(() => []);
+const mockWhere = mock<() => { returning: typeof mockReturning }>(() => ({
+  returning: mockReturning,
+}));
+const mockOrderBy = mock<() => unknown[]>(() => []);
+const mockValues = mock<() => { returning: typeof mockReturning }>(() => ({
+  returning: mockReturning,
+}));
+const mockSet = mock<() => { where: typeof mockWhere }>(() => ({
+  where: mockWhere,
+}));
+
+const mockFrom = mock<
+  () => { where: Mock<() => { orderBy: typeof mockOrderBy }> }
+>(() => ({
+  where: mock(() => ({ orderBy: mockOrderBy })),
+}));
+
+const mockSelect = mock<() => { from: typeof mockFrom }>(() => ({
+  from: mockFrom,
+}));
 
 const mockDB = {
-  select: mock<() => any>(() => ({
-    from: mock<() => any>(() => ({
-      where: mock<() => any>(() => ({ orderBy: mockOrderBy })),
-    })),
+  select: mockSelect,
+  insert: mock<() => { values: typeof mockValues }>(() => ({
+    values: mockValues,
   })),
-  insert: mock<() => any>(() => ({ values: mockValues })),
-  update: mock<() => any>(() => ({ set: mockSet })),
-  delete: mock<() => any>(() => ({ where: mockWhere })),
+  update: mock<() => { set: typeof mockSet }>(() => ({ set: mockSet })),
+  delete: mock<() => { where: typeof mockWhere }>(() => ({
+    where: mockWhere,
+  })),
 };
 
 mock.module("@/db", () => ({ db: mockDB }));
@@ -32,7 +46,6 @@ mock.module("@/db/schema", () => ({
   },
 }));
 
-// Stub drizzle operators — they just return their args for test purposes
 mock.module("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ col, val, op: "eq" }),
   and: (...args: unknown[]) => ({ args, op: "and" }),
@@ -56,7 +69,7 @@ const FOLDER_ID = "folder-1";
 
 describe("listFolders", () => {
   test("returns folders for a user", async () => {
-    const fakeFolder = {
+    const fakeFolder: Folder = {
       id: FOLDER_ID,
       userId: USER_ID,
       name: "Work",
@@ -82,7 +95,7 @@ describe("listFolders", () => {
 
 describe("createFolder", () => {
   test("inserts a new folder and returns it", async () => {
-    const fakeFolder = {
+    const fakeFolder: Folder = {
       id: FOLDER_ID,
       userId: USER_ID,
       name: "Personal",
@@ -100,7 +113,7 @@ describe("createFolder", () => {
 
 describe("renameFolder", () => {
   test("returns the renamed folder on success", async () => {
-    const updated = {
+    const updated: Folder = {
       id: FOLDER_ID,
       userId: USER_ID,
       name: "Renamed",
