@@ -8,14 +8,14 @@ export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 }
 
-export type MiddlewareAction =
+export type ProxyAction =
   { action: "pass" } | { action: "redirect"; url: string };
 
-export function getMiddlewareAction(
+export function getProxyAction(
   pathname: string,
   hasSession: boolean,
   baseUrl: string
-): MiddlewareAction {
+): ProxyAction {
   // Auth API always passes through
   if (pathname.startsWith("/api/auth")) {
     return { action: "pass" };
@@ -38,12 +38,12 @@ export function getMiddlewareAction(
   return { action: "pass" };
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
   const hasSession = Boolean(sessionCookie);
 
-  const decision = getMiddlewareAction(pathname, hasSession, request.url);
+  const decision = getProxyAction(pathname, hasSession, request.url);
 
   if (decision.action === "redirect") {
     return NextResponse.redirect(decision.url);

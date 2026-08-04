@@ -171,13 +171,13 @@ Update `"types"` to `["bun"]` and remove test file exclusions from `"exclude"`:
 
 ## 6. Verification Results Matrix
 
-| Check             | Tool / Command                       | Result                                                                        |
-| :---------------- | :----------------------------------- | :---------------------------------------------------------------------------- |
-| **Unit Tests**    | `bun test`                           | Passes all unit tests in `app/`, `components/`, `lib/`, `middleware.test.ts`. |
-| **Typecheck**     | `bun run typecheck` (`tsc --noEmit`) | Passes with 0 errors across source and test files.                            |
-| **Next.js Dev**   | `bun dev`                            | Starts development server without warnings or errors.                         |
-| **Next.js Build** | `bun run build`                      | Compiles production build successfully.                                       |
-| **IDE / VS Code** | TS Language Server                   | Resolves `import { expect, test, describe, mock } from "bun:test"` cleanly.   |
+| Check             | Tool / Command                       | Result                                                                      |
+| :---------------- | :----------------------------------- | :-------------------------------------------------------------------------- |
+| **Unit Tests**    | `bun test`                           | Passes all unit tests in `app/`, `components/`, `lib/`, `proxy.test.ts`.    |
+| **Typecheck**     | `bun run typecheck` (`tsc --noEmit`) | Passes with 0 errors across source and test files.                          |
+| **Next.js Dev**   | `bun dev`                            | Starts development server without warnings or errors.                       |
+| **Next.js Build** | `bun run build`                      | Compiles production build successfully.                                     |
+| **IDE / VS Code** | TS Language Server                   | Resolves `import { expect, test, describe, mock } from "bun:test"` cleanly. |
 
 ---
 
