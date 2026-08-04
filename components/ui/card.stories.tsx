@@ -22,14 +22,14 @@ export const Default: Story = {
   render: () => (
     <Card className="w-[350px]">
       <CardHeader>
-        <CardTitle>English Draft</CardTitle>
-        <CardDescription>Sign in to continue</CardDescription>
+        <CardTitle>Card Title</CardTitle>
+        <CardDescription>Card description placeholder text.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Button className="w-full">Continue with Google</Button>
+        <p className="text-sm">Card content goes here.</p>
       </CardContent>
-      <CardFooter className="justify-center">
-        <p className="text-xs text-muted-foreground">Terms of Service</p>
+      <CardFooter>
+        <Button className="w-full">Action</Button>
       </CardFooter>
     </Card>
   ),
