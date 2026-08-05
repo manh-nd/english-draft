@@ -17,6 +17,9 @@ import { FileText, User } from "lucide-react";
 const meta: Meta<typeof Sidebar> = {
   title: "UI/Sidebar",
   component: Sidebar,
+  parameters: {
+    layout: "fullscreen",
+  },
   tags: ["autodocs"],
 };
 

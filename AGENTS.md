@@ -25,6 +25,7 @@ Single-context (`CONTEXT.md` + `docs/adr/`). See `docs/agents/domain.md`.
 ### UI & Components
 
 Use the `shadcn` skill (`.agents/skills/shadcn/SKILL.md`). See `docs/agents/ui.md`.
+When creating or modifying UI components in `components/ui/`, ensure a corresponding `.stories.tsx` file exists or is updated. Run `bun run test:visual` to verify no visual regressions occur before completing UI work.
 
 ### Gemini API & AI
 

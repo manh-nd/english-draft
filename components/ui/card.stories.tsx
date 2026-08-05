@@ -12,6 +12,9 @@ import { Button } from "./button";
 const meta: Meta<typeof Card> = {
   title: "UI/Card",
   component: Card,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
 };
 

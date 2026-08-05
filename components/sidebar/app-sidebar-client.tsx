@@ -159,31 +159,22 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
       </SidebarContent>
 
       {/* ── Footer ─────────────────────────────────────────── */}
-      <SidebarFooter>
-        <SidebarSeparator />
+      <SidebarFooter className="gap-1.5 p-2">
+        <SidebarSeparator className="my-1" />
+        <div className="flex items-center gap-3 px-2 py-1.5">
+          <Avatar className="size-8">
+            <AvatarImage src={user.image ?? undefined} alt={user.name} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-semibold">{user.name}</span>
+            <span className="truncate text-[11px] text-muted-foreground">
+              {user.email}
+            </span>
+          </div>
+        </div>
         <ThemeToggle />
-        <Separator className="my-1" />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex items-center gap-3 px-2 py-1">
-              <Avatar className="size-8">
-                <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {user.name}
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
-                </span>
-              </div>
-            </div>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SignOutButton />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <SignOutButton />
       </SidebarFooter>
     </>
   );

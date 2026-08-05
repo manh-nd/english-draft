@@ -40,8 +40,8 @@ test-results/
 e2e/**/__snapshots__/
 *.e2e.ts-snapshots/
 
-# visual snapshots (committed per-platform — see ADR-0006)
-**/__snapshots__/
+# visual snapshots (ignore temporary diffs, track baselines if needed)
+__snapshots__/__diff_output__/
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -20,6 +20,7 @@ const withFontVariables: Decorator = (Story) => {
 const preview: Preview = {
   decorators: [withFontVariables],
   parameters: {
+    layout: "centered",
     controls: {
       matchers: {
         color: /(background|color)$/i,
