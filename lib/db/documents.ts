@@ -1,6 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { documents } from "@/db/schema";
+import { documents, folders } from "@/db/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +9,29 @@ export type DocumentListItem = Pick<
   Document,
   "id" | "title" | "folderId" | "createdAt" | "updatedAt"
 >;
+
+export class FolderNotFoundError extends Error {
+  constructor() {
+    super("Folder not found");
+    this.name = "FolderNotFoundError";
+  }
+}
+
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function assertOwnedFolder(
+  tx: DatabaseTransaction,
+  userId: string,
+  folderId: string
+): Promise<void> {
+  const [folder] = await tx
+    .select({ id: folders.id })
+    .from(folders)
+    .where(and(eq(folders.id, folderId), eq(folders.userId, userId)))
+    .for("update");
+
+  if (!folder) throw new FolderNotFoundError();
+}
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
@@ -71,11 +94,15 @@ export async function createDocument(
   userId: string,
   folderId?: string | null
 ): Promise<Document> {
-  const [doc] = await db
-    .insert(documents)
-    .values({ userId, folderId: folderId ?? null, title: "Untitled" })
-    .returning();
-  return doc;
+  return db.transaction(async (tx) => {
+    if (folderId) await assertOwnedFolder(tx, userId, folderId);
+
+    const [doc] = await tx
+      .insert(documents)
+      .values({ userId, folderId: folderId ?? null, title: "Untitled" })
+      .returning();
+    return doc;
+  });
 }
 
 /**
@@ -87,12 +114,17 @@ export async function updateDocument(
   documentId: string,
   patch: { title?: string; folderId?: string | null }
 ): Promise<Document | null> {
-  const [doc] = await db
-    .update(documents)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-    .returning();
-  return doc ?? null;
+  const folderId = patch.folderId;
+  return db.transaction(async (tx) => {
+    if (folderId) await assertOwnedFolder(tx, userId, folderId);
+
+    const [doc] = await tx
+      .update(documents)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+      .returning();
+    return doc ?? null;
+  });
 }
 
 /** Delete a Document. Returns true if deleted. */

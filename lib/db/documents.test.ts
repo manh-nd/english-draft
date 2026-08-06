@@ -22,12 +22,20 @@ const mockValues = mock<() => { returning: typeof mockReturning }>(() => ({
 const mockSet = mock<() => { where: typeof mockWhere }>(() => ({
   where: mockWhere,
 }));
-
-const mockDB = {
+const transactionDB = {
   select: mockSelect,
   insert: mock(() => ({ values: mockValues })),
   update: mock(() => ({ set: mockSet })),
+};
+const mockTransaction = mock(
+  async (callback: (tx: typeof transactionDB) => Promise<unknown>) =>
+    callback(transactionDB)
+);
+
+const mockDB = {
+  select: mockSelect,
   delete: mock(() => ({ where: mockWhere })),
+  transaction: mockTransaction,
 };
 
 mock.module("@/db", () => ({ db: mockDB }));
@@ -41,6 +49,10 @@ mock.module("@/db/schema", () => ({
     textContent: "text_content",
     createdAt: "created_at",
     updatedAt: "updated_at",
+  },
+  folders: {
+    id: "folder_id",
+    userId: "folder_user_id",
   },
 }));
 
@@ -63,10 +75,25 @@ import {
   createDocument,
   updateDocument,
   deleteDocument,
+  FolderNotFoundError,
 } from "./documents";
 
 const USER_ID = "user-1";
 const DOC_ID = "doc-1";
+const FOLDER_ID = "folder-1";
+
+function mockFolderLookup(folderId: string | null) {
+  const folderWhere = mock((condition: unknown) => {
+    void condition;
+    return {
+      for: mock(() => (folderId ? [{ id: folderId }] : [])),
+    };
+  });
+  mockFrom.mockReturnValueOnce({
+    where: folderWhere,
+  } as unknown as ReturnType<typeof mockFrom>);
+  return folderWhere;
+}
 
 const fakeDoc: Document = {
   id: DOC_ID,
@@ -133,14 +160,25 @@ describe("createDocument", () => {
     mockReturning.mockReturnValueOnce([{ ...fakeDoc, title: "Untitled" }]);
     const result = await createDocument(USER_ID);
     expect(result.title).toBe("Untitled");
-    expect(mockDB.insert).toHaveBeenCalled();
+    expect(transactionDB.insert).toHaveBeenCalled();
   });
 
   test("creates with a folderId", async () => {
-    const folderDoc = { ...fakeDoc, folderId: "folder-1" };
+    const folderDoc = { ...fakeDoc, folderId: FOLDER_ID };
+    mockFolderLookup(FOLDER_ID);
     mockReturning.mockReturnValueOnce([folderDoc]);
-    const result = await createDocument(USER_ID, "folder-1");
-    expect(result.folderId).toBe("folder-1");
+    const result = await createDocument(USER_ID, FOLDER_ID);
+    expect(result.folderId).toBe(FOLDER_ID);
+  });
+
+  test("rejects a missing folder before inserting", async () => {
+    mockFolderLookup(null);
+    const insertsBeforeRequest = transactionDB.insert.mock.calls.length;
+
+    await expect(
+      createDocument(USER_ID, "missing-folder")
+    ).rejects.toBeInstanceOf(FolderNotFoundError);
+    expect(transactionDB.insert.mock.calls.length).toBe(insertsBeforeRequest);
   });
 });
 
@@ -152,13 +190,44 @@ describe("updateDocument", () => {
       title: "Renamed Doc",
     });
     expect(result?.title).toBe("Renamed Doc");
-    expect(mockDB.update).toHaveBeenCalled();
+    expect(transactionDB.update).toHaveBeenCalled();
   });
 
   test("returns null when document not found", async () => {
     mockReturning.mockReturnValueOnce([]);
     const result = await updateDocument(USER_ID, "nonexistent", { title: "X" });
     expect(result).toBeNull();
+  });
+
+  test("moves a document into an owned folder", async () => {
+    const movedDocument = { ...fakeDoc, folderId: FOLDER_ID };
+    mockFolderLookup(FOLDER_ID);
+    mockReturning.mockReturnValueOnce([movedDocument]);
+
+    const result = await updateDocument(USER_ID, DOC_ID, {
+      folderId: FOLDER_ID,
+    });
+
+    expect(result?.folderId).toBe(FOLDER_ID);
+  });
+
+  test("moves a document to the root", async () => {
+    mockReturning.mockReturnValueOnce([fakeDoc]);
+
+    const result = await updateDocument(USER_ID, DOC_ID, { folderId: null });
+
+    expect(result?.folderId).toBeNull();
+  });
+
+  test("rejects a cross-account folder before changing the document", async () => {
+    mockFolderLookup(null);
+    const updatesBeforeRequest = transactionDB.update.mock.calls.length;
+
+    await expect(
+      updateDocument(USER_ID, DOC_ID, { folderId: "foreign-folder" })
+    ).rejects.toBeInstanceOf(FolderNotFoundError);
+
+    expect(transactionDB.update.mock.calls.length).toBe(updatesBeforeRequest);
   });
 });
 

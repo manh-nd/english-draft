@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api/require-session";
+import { isFolderId } from "@/lib/api/folder-id";
 import {
   getDocument,
   updateDocument,
   deleteDocument,
+  FolderNotFoundError,
 } from "@/lib/db/documents";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -32,13 +34,29 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const patch: { title?: string; folderId?: string | null } = {};
   if (typeof body.title === "string") patch.title = body.title.trim();
-  if ("folderId" in body) patch.folderId = body.folderId ?? null;
-
-  const doc = await updateDocument(result.userId, id, patch);
-  if (!doc) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if ("folderId" in body) {
+    const folderId = body.folderId ?? null;
+    if (folderId !== null && !isFolderId(folderId)) {
+      return NextResponse.json(
+        { error: "Invalid Folder identifier" },
+        { status: 400 }
+      );
+    }
+    patch.folderId = folderId;
   }
-  return NextResponse.json(doc);
+
+  try {
+    const doc = await updateDocument(result.userId, id, patch);
+    if (!doc) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(doc);
+  } catch (error) {
+    if (error instanceof FolderNotFoundError) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {

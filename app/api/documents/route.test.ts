@@ -9,6 +9,8 @@ import type {
   DocumentListItem,
 } from "@/lib/db/documents";
 
+class MockFolderNotFoundError extends Error {}
+
 // ─── Mock require-session ────────────────────────────────────────────────────
 const mockRequireSession = mock<typeof requireSession>(async () => ({
   userId: "user-1",
@@ -25,6 +27,7 @@ mock.module("@/lib/db/documents", () => ({
   listDocuments: mockListDocuments,
   searchDocuments: mockSearchDocuments,
   createDocument: mockCreateDocument,
+  FolderNotFoundError: MockFolderNotFoundError,
 }));
 
 // ─── Mock Next.js internals ──────────────────────────────────────────────────
@@ -48,6 +51,7 @@ import { GET, POST } from "./route";
 import { NextResponse } from "next/server";
 
 const USER_ID = "user-1";
+const FOLDER_ID = "00000000-0000-4000-8000-000000000001";
 const fakeDocListItem: DocumentListItem = {
   id: "doc-1",
   title: "Hello World",
@@ -145,10 +149,35 @@ describe("POST /api/documents", () => {
     mockRequireSession.mockReturnValueOnce(
       Promise.resolve({ userId: USER_ID })
     );
-    const docWithFolder: Document = { ...fakeDoc, folderId: "folder-1" };
+    const docWithFolder: Document = { ...fakeDoc, folderId: FOLDER_ID };
     mockCreateDocument.mockReturnValueOnce(Promise.resolve(docWithFolder));
-    const res = await POST(makeReq({}, { folderId: "folder-1" }));
+    const res = await POST(makeReq({}, { folderId: FOLDER_ID }));
     expect(res.status).toBe(201);
-    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, "folder-1");
+    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, FOLDER_ID);
+  });
+
+  test("rejects an invalid Folder identifier", async () => {
+    mockRequireSession.mockReturnValueOnce(
+      Promise.resolve({ userId: USER_ID })
+    );
+    const callsBeforeRequest = mockCreateDocument.mock.calls.length;
+
+    const res = await POST(makeReq({}, { folderId: "not-a-uuid" }));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid Folder identifier" });
+    expect(mockCreateDocument.mock.calls.length).toBe(callsBeforeRequest);
+  });
+
+  test("maps a rejected Folder assignment to not found", async () => {
+    mockRequireSession.mockReturnValueOnce(
+      Promise.resolve({ userId: USER_ID })
+    );
+    mockCreateDocument.mockRejectedValueOnce(new MockFolderNotFoundError());
+
+    const res = await POST(makeReq({}, { folderId: FOLDER_ID }));
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Folder not found" });
   });
 });
