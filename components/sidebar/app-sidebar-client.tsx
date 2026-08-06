@@ -90,6 +90,22 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
     [createDocument, router]
   );
 
+  const handleRenameDocument = useCallback(
+    async (id: string, title: string) => {
+      const succeeded = await renameDocument(id, title);
+      if (succeeded && id === activeDocumentId) router.refresh();
+    },
+    [activeDocumentId, renameDocument, router]
+  );
+
+  const handleDeleteDocument = useCallback(
+    async (id: string) => {
+      const succeeded = await deleteDocument(id);
+      if (succeeded && id === activeDocumentId) router.replace("/");
+    },
+    [activeDocumentId, deleteDocument, router]
+  );
+
   return (
     <>
       {/* ── Header ─────────────────────────────────────────── */}
@@ -161,8 +177,8 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
                 activeDocumentId={activeDocumentId}
                 searchQuery={showingSearchResults ? normalizedQuery : undefined}
                 onCreateDocument={handleCreateDocument}
-                onRenameDocument={renameDocument}
-                onDeleteDocument={deleteDocument}
+                onRenameDocument={handleRenameDocument}
+                onDeleteDocument={handleDeleteDocument}
                 onMoveDocument={moveDocument}
                 onCreateFolder={createFolder}
                 onRenameFolder={renameFolder}

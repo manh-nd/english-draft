@@ -1,11 +1,20 @@
-import { expect, test, describe, mock, beforeAll } from "bun:test";
+import { expect, test, describe, mock, beforeAll, beforeEach } from "bun:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 // Mock next/navigation & next-themes
+const routerPush = mock(() => {});
+const routerReplace = mock(() => {});
+const routerRefresh = mock(() => {});
+let currentPathname = "/";
+
 mock.module("next/navigation", () => ({
-  useRouter: () => ({ push: mock(() => {}) }),
-  usePathname: () => "/",
+  useRouter: () => ({
+    push: routerPush,
+    replace: routerReplace,
+    refresh: routerRefresh,
+  }),
+  usePathname: () => currentPathname,
 }));
 
 mock.module("next-themes", () => ({
@@ -34,6 +43,41 @@ mock.module("@dnd-kit/sortable", () => ({
   verticalListSortingStrategy: mock(() => {}),
 }));
 
+const renameDocument = mock(async () => true);
+const deleteDocument = mock(async () => true);
+
+mock.module("@/hooks/use-sidebar-data", () => ({
+  useSidebarData: () => ({
+    data: {
+      folders: [],
+      documents: [
+        {
+          id: "active-document",
+          title: "Active document",
+          folderId: null,
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+        {
+          id: "other-document",
+          title: "Other document",
+          folderId: null,
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+      ],
+    },
+    isLoading: false,
+    createDocument: mock(async () => null),
+    renameDocument,
+    deleteDocument,
+    moveDocument: mock(async () => true),
+    createFolder: mock(async () => null),
+    renameFolder: mock(async () => true),
+    deleteFolder: mock(async () => true),
+  }),
+}));
+
 // Setup React 19 dispatcher so components calling hooks (useState/useRef/useEffect) can be invoked directly
 beforeAll(() => {
   const internals =
@@ -55,6 +99,11 @@ beforeAll(() => {
     useLayoutEffect: () => {},
     useMemo: (fn: () => unknown) => fn(),
     useContext: () => ({}),
+    useReducer: (
+      _reducer: unknown,
+      initialArg: unknown,
+      init?: (value: unknown) => unknown
+    ) => [init ? init(initialArg) : initialArg, () => {}],
   };
 
   if (internals && typeof internals === "object") {
@@ -71,8 +120,101 @@ import { DocumentTree } from "@/components/sidebar/document-tree";
 import { DocumentItem } from "@/components/sidebar/document-item";
 import { SearchBar } from "@/components/sidebar/search-bar";
 import { ThemeToggle } from "@/components/sidebar/theme-toggle";
+import { AppSidebarClient } from "@/components/sidebar/app-sidebar-client";
+
+function findElementByType(
+  node: React.ReactNode,
+  type: React.ElementType
+): React.ReactElement | undefined {
+  if (!React.isValidElement(node)) return undefined;
+  if (node.type === type) return node;
+
+  const props = node.props as { children?: React.ReactNode };
+  for (const child of React.Children.toArray(props.children)) {
+    const match = findElementByType(child, type);
+    if (match) return match;
+  }
+
+  return undefined;
+}
+
+function renderAppSidebarDocumentTree() {
+  const sidebar = AppSidebarClient({
+    user: {
+      id: "user-1",
+      name: "Test User",
+      email: "test@example.com",
+    },
+  });
+  const tree = findElementByType(sidebar, DocumentTree);
+  expect(tree).toBeDefined();
+  return tree as React.ReactElement<React.ComponentProps<typeof DocumentTree>>;
+}
 
 describe("Sidebar UI Components - Regression & Hydration Tests", () => {
+  beforeEach(() => {
+    currentPathname = "/documents/active-document";
+    routerPush.mockClear();
+    routerReplace.mockClear();
+    routerRefresh.mockClear();
+    renameDocument.mockClear();
+    deleteDocument.mockClear();
+    renameDocument.mockImplementation(async () => true);
+    deleteDocument.mockImplementation(async () => true);
+  });
+
+  describe("active Document mutation synchronization", () => {
+    test("renaming the active Document refreshes its content after success", async () => {
+      const tree = renderAppSidebarDocumentTree();
+
+      await tree.props.onRenameDocument("active-document", "Renamed");
+
+      expect(renameDocument).toHaveBeenCalledWith("active-document", "Renamed");
+      expect(routerRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    test("renaming a non-active Document leaves the open Document undisturbed", async () => {
+      const tree = renderAppSidebarDocumentTree();
+
+      await tree.props.onRenameDocument("other-document", "Renamed");
+
+      expect(renameDocument).toHaveBeenCalledWith("other-document", "Renamed");
+      expect(routerRefresh).not.toHaveBeenCalled();
+      expect(routerReplace).not.toHaveBeenCalled();
+    });
+
+    test("deleting the active Document replaces its route with the application root", async () => {
+      const tree = renderAppSidebarDocumentTree();
+
+      await tree.props.onDeleteDocument("active-document");
+
+      expect(deleteDocument).toHaveBeenCalledWith("active-document");
+      expect(routerReplace).toHaveBeenCalledWith("/");
+    });
+
+    test("deleting a non-active Document leaves the active Document open", async () => {
+      const tree = renderAppSidebarDocumentTree();
+
+      await tree.props.onDeleteDocument("other-document");
+
+      expect(deleteDocument).toHaveBeenCalledWith("other-document");
+      expect(routerReplace).not.toHaveBeenCalled();
+      expect(routerRefresh).not.toHaveBeenCalled();
+    });
+
+    test("failed active Document mutations retain the confirmed route and content", async () => {
+      renameDocument.mockImplementation(async () => false);
+      deleteDocument.mockImplementation(async () => false);
+      const tree = renderAppSidebarDocumentTree();
+
+      await tree.props.onRenameDocument("active-document", "Unconfirmed");
+      await tree.props.onDeleteDocument("active-document");
+
+      expect(routerRefresh).not.toHaveBeenCalled();
+      expect(routerReplace).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Bug 3: CommandDialog cmdk context wrapper", () => {
     test("CommandDialog wraps children in Command component", () => {
       const dialogElement = CommandDialog({

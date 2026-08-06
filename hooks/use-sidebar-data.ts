@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +30,9 @@ export function useSidebarData() {
   const [data, setData] = useState<SidebarData>({ folders: [], documents: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const confirmedDocuments = useRef(new Map<string, SidebarDocument>());
+  const documentMutationVersions = useRef(new Map<string, number>());
+  const documentMutationQueues = useRef(new Map<string, Promise<void>>());
 
   const refresh = useCallback(async () => {
     try {
@@ -47,6 +50,9 @@ export function useSidebarData() {
         docsRes.json() as Promise<SidebarDocument[]>,
       ]);
 
+      confirmedDocuments.current = new Map(
+        documents.map((document) => [document.id, document])
+      );
       setData({ folders, documents });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -66,27 +72,53 @@ export function useSidebarData() {
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
-  /** PATCH /api/documents/:id with a partial update. Reverts on API error. */
-  const patchDocument = useCallback(
-    async (
+  const nextDocumentMutationVersion = useCallback((id: string) => {
+    const version = (documentMutationVersions.current.get(id) ?? 0) + 1;
+    documentMutationVersions.current.set(id, version);
+    return version;
+  }, []);
+
+  const enqueueDocumentMutation = useCallback(
+    async <T>(id: string, mutation: () => Promise<T>): Promise<T> => {
+      const previous = documentMutationQueues.current.get(id);
+      const result = (previous ?? Promise.resolve()).then(mutation);
+      const settled = result.then(
+        () => undefined,
+        () => undefined
+      );
+      documentMutationQueues.current.set(id, settled);
+
+      try {
+        return await result;
+      } finally {
+        if (documentMutationQueues.current.get(id) === settled) {
+          documentMutationQueues.current.delete(id);
+        }
+      }
+    },
+    []
+  );
+
+  const rollbackDocumentMutationIfCurrent = useCallback(
+    (
       id: string,
-      optimisticUpdate: (d: SidebarDocument) => SidebarDocument,
-      body: object
-    ): Promise<void> => {
+      version: number,
+      fallbackDocument: SidebarDocument | undefined
+    ) => {
+      if (documentMutationVersions.current.get(id) !== version) return;
+
+      const rollbackDocument =
+        confirmedDocuments.current.get(id) ?? fallbackDocument;
+      if (!rollbackDocument) return;
+
       setData((prev) => ({
         ...prev,
-        documents: prev.documents.map((d) =>
-          d.id === id ? optimisticUpdate(d) : d
+        documents: prev.documents.map((document) =>
+          document.id === id ? rollbackDocument : document
         ),
       }));
-      const res = await fetch(`/api/documents/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) await refresh();
     },
-    [refresh]
+    []
   );
 
   // ── Mutations ───────────────────────────────────────────────────────────────
@@ -105,36 +137,170 @@ export function useSidebarData() {
         ...prev,
         documents: [doc, ...prev.documents],
       }));
+      confirmedDocuments.current.set(doc.id, doc);
       return doc;
     },
     []
   );
 
   const renameDocument = useCallback(
-    async (id: string, title: string): Promise<void> => {
-      await patchDocument(id, (d) => ({ ...d, title }), { title });
+    async (id: string, title: string): Promise<boolean> => {
+      const version = nextDocumentMutationVersion(id);
+      const initialConfirmedDocument =
+        confirmedDocuments.current.get(id) ??
+        data.documents.find((document) => document.id === id);
+      setData((prev) => ({
+        ...prev,
+        documents: prev.documents.map((document) =>
+          document.id === id ? { ...document, title } : document
+        ),
+      }));
+
+      return enqueueDocumentMutation(id, async () => {
+        try {
+          const res = await fetch(`/api/documents/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+          });
+          if (!res.ok) throw new Error("Failed to update Document");
+
+          const savedDocument = (await res.json()) as SidebarDocument;
+          confirmedDocuments.current.set(id, savedDocument);
+          if (documentMutationVersions.current.get(id) === version) {
+            setData((prev) => ({
+              ...prev,
+              documents: prev.documents.map((document) =>
+                document.id === id ? savedDocument : document
+              ),
+            }));
+          }
+          return true;
+        } catch (err) {
+          rollbackDocumentMutationIfCurrent(
+            id,
+            version,
+            initialConfirmedDocument
+          );
+          console.error(
+            "[useSidebarData]",
+            err instanceof Error ? err.message : "Failed to update Document"
+          );
+          return false;
+        }
+      });
     },
-    [patchDocument]
+    [
+      data.documents,
+      enqueueDocumentMutation,
+      nextDocumentMutationVersion,
+      rollbackDocumentMutationIfCurrent,
+    ]
   );
 
   const moveDocument = useCallback(
     async (id: string, folderId: string | null): Promise<void> => {
-      await patchDocument(id, (d) => ({ ...d, folderId }), { folderId });
+      const version = nextDocumentMutationVersion(id);
+      const initialConfirmedDocument =
+        confirmedDocuments.current.get(id) ??
+        data.documents.find((document) => document.id === id);
+      setData((prev) => ({
+        ...prev,
+        documents: prev.documents.map((document) =>
+          document.id === id ? { ...document, folderId } : document
+        ),
+      }));
+
+      await enqueueDocumentMutation(id, async () => {
+        try {
+          const res = await fetch(`/api/documents/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folderId }),
+          });
+          if (!res.ok) throw new Error("Failed to move Document");
+
+          const latestConfirmedDocument =
+            confirmedDocuments.current.get(id) ?? initialConfirmedDocument;
+          if (latestConfirmedDocument) {
+            confirmedDocuments.current.set(id, {
+              ...latestConfirmedDocument,
+              folderId,
+            });
+          }
+          if (documentMutationVersions.current.get(id) === version) {
+            setData((prev) => ({
+              ...prev,
+              documents: prev.documents.map((document) =>
+                document.id === id ? { ...document, folderId } : document
+              ),
+            }));
+          }
+        } catch (err) {
+          rollbackDocumentMutationIfCurrent(
+            id,
+            version,
+            initialConfirmedDocument
+          );
+          console.error(
+            "[useSidebarData]",
+            err instanceof Error ? err.message : "Failed to move Document"
+          );
+        }
+      });
     },
-    [patchDocument]
+    [
+      data.documents,
+      enqueueDocumentMutation,
+      nextDocumentMutationVersion,
+      rollbackDocumentMutationIfCurrent,
+    ]
   );
 
   const deleteDocument = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string): Promise<boolean> => {
+      const version = nextDocumentMutationVersion(id);
+      const confirmedIndex = data.documents.findIndex((d) => d.id === id);
+      const initialConfirmedDocument =
+        confirmedDocuments.current.get(id) ?? data.documents[confirmedIndex];
       // Optimistic update
       setData((prev) => ({
         ...prev,
         documents: prev.documents.filter((d) => d.id !== id),
       }));
-      const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
-      if (!res.ok) await refresh(); // revert on error
+
+      return enqueueDocumentMutation(id, async () => {
+        try {
+          const res = await fetch(`/api/documents/${id}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) throw new Error("Failed to delete Document");
+          confirmedDocuments.current.delete(id);
+          return true;
+        } catch (err) {
+          if (documentMutationVersions.current.get(id) === version) {
+            const rollbackDocument =
+              confirmedDocuments.current.get(id) ?? initialConfirmedDocument;
+            if (rollbackDocument) {
+              setData((prev) => {
+                if (prev.documents.some((document) => document.id === id)) {
+                  return prev;
+                }
+                const documents = [...prev.documents];
+                documents.splice(confirmedIndex, 0, rollbackDocument);
+                return { ...prev, documents };
+              });
+            }
+          }
+          console.error(
+            "[useSidebarData]",
+            err instanceof Error ? err.message : "Failed to delete Document"
+          );
+          return false;
+        }
+      });
     },
-    [refresh]
+    [data.documents, enqueueDocumentMutation, nextDocumentMutationVersion]
   );
 
   const createFolder = useCallback(
@@ -185,7 +351,18 @@ export function useSidebarData() {
         ),
       }));
       const res = await fetch(`/api/folders/${id}`, { method: "DELETE" });
-      if (!res.ok) await refresh();
+      if (!res.ok) {
+        await refresh();
+        return;
+      }
+      for (const [documentId, document] of confirmedDocuments.current) {
+        if (document.folderId === id) {
+          confirmedDocuments.current.set(documentId, {
+            ...document,
+            folderId: null,
+          });
+        }
+      }
     },
     [refresh]
   );
