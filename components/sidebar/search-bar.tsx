@@ -21,7 +21,7 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
       <InputGroupInput
         id="sidebar-search"
         type="text"
-        placeholder="Filter documents…"
+        placeholder="Search documents…"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

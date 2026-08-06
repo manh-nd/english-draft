@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -11,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { FileText } from "lucide-react";
-import type { SidebarDocument } from "@/hooks/use-sidebar-data";
+import { useDocumentSearch } from "@/hooks/use-document-search";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -21,33 +21,15 @@ interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SidebarDocument[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  const search = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const res = await fetch(
-        `/api/documents?q=${encodeURIComponent(q.trim())}`
-      );
-      if (res.ok) {
-        const docs: SidebarDocument[] = await res.json();
-        setResults(docs);
-      }
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => search(query), 300);
-    return () => clearTimeout(timer);
-  }, [query, search]);
+  const search = useDocumentSearch(query);
+  const normalizedQuery = query.trim();
+  const results =
+    search.status === "success" && search.query === normalizedQuery
+      ? search.documents
+      : [];
+  const isSearching =
+    Boolean(normalizedQuery) &&
+    (search.status === "loading" || search.query !== normalizedQuery);
 
   const navigate = (id: string) => {
     router.push(`/documents/${id}`);
@@ -66,8 +48,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         onValueChange={setQuery}
       />
       <CommandList>
-        {query.trim() === "" ? null : isSearching ? (
+        {!normalizedQuery ? null : isSearching ? (
           <CommandEmpty>Searching…</CommandEmpty>
+        ) : search.status === "error" ? (
+          <CommandEmpty>Search failed.</CommandEmpty>
         ) : results.length === 0 ? (
           <CommandEmpty>No documents found.</CommandEmpty>
         ) : (

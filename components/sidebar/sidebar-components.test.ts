@@ -66,6 +66,7 @@ beforeAll(() => {
 });
 
 import { CommandDialog, CommandInput, Command } from "@/components/ui/command";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { DocumentTree } from "@/components/sidebar/document-tree";
 import { DocumentItem } from "@/components/sidebar/document-item";
 import { SearchBar } from "@/components/sidebar/search-bar";
@@ -169,7 +170,6 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
         React.createElement(DocumentTree, {
           folders: [],
           documents: [],
-          filter: "",
           onCreateDocument: async () => {},
           onRenameDocument: async () => {},
           onDeleteDocument: async () => {},
@@ -182,6 +182,38 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
 
       expect(markup).toContain('data-slot="empty"');
       expect(markup).toContain("No documents yet");
+    });
+
+    test("search results render even when the title does not contain the query", () => {
+      const markup = renderToStaticMarkup(
+        React.createElement(
+          SidebarProvider,
+          null,
+          React.createElement(DocumentTree, {
+            folders: [],
+            documents: [
+              {
+                id: "content-match",
+                title: "Weekly reflection",
+                folderId: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+            searchQuery: "grammar",
+            onCreateDocument: async () => {},
+            onRenameDocument: async () => {},
+            onDeleteDocument: async () => {},
+            onMoveDocument: async () => {},
+            onCreateFolder: async () => {},
+            onRenameFolder: async () => {},
+            onDeleteFolder: async () => {},
+          })
+        )
+      );
+
+      expect(markup).toContain("Weekly reflection");
+      expect(markup).not.toContain("No documents match");
     });
   });
 });

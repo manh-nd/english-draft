@@ -69,9 +69,8 @@ export async function searchDocuments(
     .where(
       and(
         eq(documents.userId, userId),
-        // Match against the stored text_content column — PostgreSQL can use the
-        // GIN index built on to_tsvector('english', text_content).
-        sql`${documents.textContent} @@ plainto_tsquery('english', ${query})`
+        // Keep this expression identical to documents_text_content_gin_idx.
+        sql`to_tsvector('english', ${documents.textContent}) @@ plainto_tsquery('english', ${query})`
       )
     )
     .orderBy(desc(documents.updatedAt));

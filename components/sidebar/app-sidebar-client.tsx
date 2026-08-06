@@ -15,8 +15,8 @@ import {
   SidebarGroupAction,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -24,6 +24,10 @@ import { DocumentTree } from "@/components/sidebar/document-tree";
 import { SearchBar } from "@/components/sidebar/search-bar";
 import { ThemeToggle } from "@/components/sidebar/theme-toggle";
 import { useSidebarData } from "@/hooks/use-sidebar-data";
+import {
+  selectSidebarDocuments,
+  useDocumentSearch,
+} from "@/hooks/use-document-search";
 import { FileText, Plus, FolderPlus } from "lucide-react";
 import Link from "next/link";
 
@@ -52,6 +56,17 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
     renameFolder,
     deleteFolder,
   } = useSidebarData();
+  const search = useDocumentSearch(filter);
+  const normalizedQuery = filter.trim();
+  const visibleDocuments = selectSidebarDocuments(
+    data.documents,
+    filter,
+    search
+  );
+  const showingSearchResults =
+    Boolean(normalizedQuery) &&
+    search.status === "success" &&
+    search.query === normalizedQuery;
 
   // Derive active document id from pathname
   const activeDocumentId = pathname.startsWith("/documents/")
@@ -116,6 +131,23 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
           </SidebarGroupAction>
 
           <SidebarGroupContent>
+            {normalizedQuery && search.status === "loading" && (
+              <div
+                className="flex flex-col gap-1 px-2 py-1"
+                role="status"
+                aria-label="Searching documents"
+              >
+                <Skeleton className="h-5 w-full" />
+                <span className="sr-only">Searching documents…</span>
+              </div>
+            )}
+            {normalizedQuery && search.status === "error" && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Search failed. Showing your document tree.
+                </AlertDescription>
+              </Alert>
+            )}
             {isLoading ? (
               <div className="flex flex-col gap-1 px-2 py-1">
                 <Skeleton className="h-5 w-full" />
@@ -125,9 +157,9 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
             ) : (
               <DocumentTree
                 folders={data.folders}
-                documents={data.documents}
+                documents={visibleDocuments}
                 activeDocumentId={activeDocumentId}
-                filter={filter}
+                searchQuery={showingSearchResults ? normalizedQuery : undefined}
                 onCreateDocument={handleCreateDocument}
                 onRenameDocument={renameDocument}
                 onDeleteDocument={deleteDocument}

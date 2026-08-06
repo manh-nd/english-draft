@@ -32,7 +32,7 @@ interface DocumentTreeProps {
   folders: SidebarFolder[];
   documents: SidebarDocument[];
   activeDocumentId?: string;
-  filter: string;
+  searchQuery?: string;
   onCreateDocument: (folderId?: string | null) => Promise<void>;
   onRenameDocument: (id: string, title: string) => Promise<void>;
   onDeleteDocument: (id: string) => Promise<void>;
@@ -46,7 +46,7 @@ export function DocumentTree({
   folders,
   documents,
   activeDocumentId,
-  filter,
+  searchQuery,
   onCreateDocument,
   onRenameDocument,
   onDeleteDocument,
@@ -70,18 +70,12 @@ export function DocumentTree({
     return () => document.removeEventListener("sidebar:new-folder", handler);
   }, []);
 
-  const lowerFilter = filter.toLowerCase();
-  const visibleDocuments = filter
-    ? documents.filter((document) =>
-        (document.title || "Untitled").toLowerCase().includes(lowerFilter)
-      )
-    : documents;
   const documentsInFolder = (folderId: string) =>
-    visibleDocuments.filter((document) => document.folderId === folderId);
-  const rootDocuments = visibleDocuments.filter(
+    documents.filter((document) => document.folderId === folderId);
+  const rootDocuments = documents.filter(
     (document) => document.folderId === null
   );
-  const visibleFolders = filter
+  const visibleFolders = searchQuery
     ? folders.filter((folder) => documentsInFolder(folder.id).length > 0)
     : folders;
 
@@ -184,7 +178,9 @@ export function DocumentTree({
               <Empty className="p-2">
                 <EmptyHeader>
                   <EmptyDescription>
-                    {filter ? "No documents match" : "No documents yet"}
+                    {searchQuery
+                      ? `No documents match “${searchQuery}”`
+                      : "No documents yet"}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
