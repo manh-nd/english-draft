@@ -1,4 +1,5 @@
 import type { TestRunnerConfig } from "@storybook/test-runner";
+import { waitForPageReady } from "@storybook/test-runner";
 import { toMatchImageSnapshot } from "jest-image-snapshot";
 import path from "path";
 
@@ -7,8 +8,7 @@ const config: TestRunnerConfig = {
     expect.extend({ toMatchImageSnapshot });
   },
   async postVisit(page, context) {
-    // Wait for fonts, images, and network requests to stabilize
-    await page.waitForLoadState("networkidle");
+    await waitForPageReady(page);
 
     // Check if there are active portals attached directly to body (Radix portals, Dialog, Tooltip, Sheet, etc.)
     const hasPortal = await page.evaluate(() => {
@@ -38,7 +38,10 @@ const config: TestRunnerConfig = {
       hasPortal || isFullscreen
         ? page.locator("body")
         : page.locator("#storybook-root");
-    const image = await targetLocator.screenshot();
+    const image = await targetLocator.screenshot({
+      animations: "disabled",
+      caret: "hide",
+    });
     expect(image).toMatchImageSnapshot({
       customSnapshotIdentifier: context.id,
       customSnapshotsDir: path.join(

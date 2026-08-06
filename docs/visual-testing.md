@@ -1,99 +1,58 @@
-# Visual UI & Component Testing Guide
+# Visual UI and component testing
 
-Self-hosted visual testing strategy for this codebase (**Next.js 16**, **React 19**, **Tailwind CSS v4**, **Bun**, **Shadcn UI**).
+This project uses self-hosted visual testing for Next.js 16, React 19, Tailwind CSS v4, Bun, and shadcn/ui. See [ADR-0006](adr/0006-self-hosted-docker-visual-testing.md) for the architectural decision.
 
-> **Architectural Decision**: See [ADR-0006](file:///Users/manh/english-draft/docs/adr/0006-self-hosted-docker-visual-testing.md) for rationale on self-hosted Docker execution.
+## Runtime
 
----
+The supported runtime is intentionally pinned:
 
-## 1. Chosen Strategy: 100% Self-Hosted Hybrid Testing
+| Part                                                         | Version |
+| ------------------------------------------------------------ | ------- |
+| Storybook, `@storybook/nextjs-vite`, `@storybook/addon-docs` | 10.5.7  |
+| `@storybook/test-runner`                                     | 0.24.4  |
+| Playwright package and Linux image                           | 1.62.1  |
+| Bun in the Linux image                                       | 1.3.14  |
 
-We use a two-tier self-hosted visual testing setup:
+`@storybook/nextjs-vite` is the Storybook framework integration for this Next.js application. The test runner's Storybook 10 peer range is compatible with the pinned Storybook version.
 
-1. **Page/Flow Visual Testing**: Playwright E2E (`@playwright/test`) with `toHaveScreenshot()`.
-2. **Component-Level Visual Testing**: Storybook 10 (`@storybook/nextjs-vite`) + Storybook Test Runner (`@storybook/test-runner`).
+`Dockerfile.visual-test` combines `mcr.microsoft.com/playwright:v1.62.1-noble` with Bun 1.3.14 and installs the exact `bun.lock`. Host `node_modules` is hidden by an anonymous container volume, so native host packages cannot leak into Linux captures.
 
-Both tiers execute inside standard Linux Docker containers (`mcr.microsoft.com/playwright`) to guarantee 0% subpixel font antialiasing variance between macOS local development and Linux CI runners.
+## Component snapshots
 
----
+`bun run test:visual` performs the complete comparison flow:
 
-## 2. Playwright E2E Visual Testing
+1. Verify that Docker and its daemon are available.
+2. Build the pinned test image.
+3. Build the static Storybook inside the image.
+4. Start a local static server and wait for its `index.json`.
+5. Run every story through one Chromium worker and compare its screenshot with the checked-in baseline.
 
-Tests full application routes (`/login`, main app shell) against the live Next.js build.
-
-### Test Example (`e2e/visual.spec.ts`)
-
-```ts
-import { test, expect } from "@playwright/test";
-
-test.describe("Page Visual Regression", () => {
-  test("Login page matches baseline snapshot", async ({ page }) => {
-    await page.goto("/login");
-    await expect(page).toHaveScreenshot("login-page.png");
-  });
-});
-```
-
----
-
-## 3. Storybook 10 Component Visual Testing
-
-Isolates individual Shadcn UI components (`Button`, `Card`, `Sidebar`, `Avatar`) into stories and automatically runs Playwright visual assertion against every story via `@storybook/test-runner`.
-
-### Story Example (`components/ui/card.stories.tsx`)
-
-```tsx
-import type { Meta, StoryObj } from "@storybook/react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "./card";
-import { Button } from "./button";
-
-const meta: Meta<typeof Card> = {
-  title: "UI/Card",
-  component: Card,
-};
-
-export default meta;
-type Story = StoryObj<typeof Card>;
-
-export const Default: Story = {
-  render: () => (
-    <Card className="w-[350px]">
-      <CardHeader>
-        <CardTitle>Card Title</CardTitle>
-        <CardDescription>Card Description</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button>Action</Button>
-      </CardContent>
-    </Card>
-  ),
-};
-```
-
----
-
-## 4. Running Visual Tests Locally via Docker
-
-To generate or verify snapshots with 0% OS pixel discrepancy:
+Update intentional changes with the same runtime:
 
 ```bash
-# Run Playwright tests inside Playwright Linux container
-docker run --rm -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.49.0-noble npx playwright test
-
-# Update baseline snapshots inside Docker container
-docker run --rm -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.49.0-noble npx playwright test --update-snapshots
+bun run test:visual:update
 ```
 
----
+Never create or update baselines by running `test-storybook` directly on the host. Baselines live under `__snapshots__/`; transient diffs under `__snapshots__/__diff_output__/` are ignored.
 
-## 5. Summary of Architecture Decisions
+The capture hook waits for Storybook, fonts, and images, hides carets, and disables Playwright animations. Storybook also globally disables CSS animation, transitions, and smooth scrolling so animated components render at a fixed state. Stories must use checked-in fixtures under `public/storybook/` instead of remote media hosts.
 
-- **No Cloud Third-Party SaaS**: 100% self-hosted local and CI execution.
-- **Strict Pixel Accuracy**: Standardized Playwright Docker Linux image (`mcr.microsoft.com/playwright`).
-- **Storybook 10**: ESM-only component sandbox using `@storybook/nextjs-vite` builder for Next.js 16 + React 19 + Tailwind v4.
+If Docker is unavailable, the public command exits with a Docker prerequisite message. If the static server does not become ready, it prints the server log and exits with the Storybook URL that failed.
+
+## Page-flow snapshots
+
+Playwright page-flow tests use `expect(page).toHaveScreenshot()` under `e2e/`. Run comparisons and updates in the same pinned image:
+
+```bash
+bun run test:e2e:docker
+bun run test:e2e:docker:update
+```
+
+The non-Docker `bun run test:e2e` command is useful for functional debugging, but it is not a supported way to compare or update visual baselines.
+
+## Story requirements
+
+- Import `Meta` and `StoryObj` from `@storybook/nextjs-vite`.
+- Keep every captured state static and repeatable; do not use the current time, randomness, or remote requests.
+- Keep required shadcn/ui composition, such as an `AvatarFallback` for every `Avatar`.
+- Use the `fullscreen` layout only when the story intentionally owns the viewport; other stories are cropped to `#storybook-root`.

@@ -1,4 +1,4 @@
-import type { Preview, Decorator } from "@storybook/react";
+import type { Decorator, Preview } from "@storybook/nextjs-vite";
 import "../app/globals.css";
 
 // React 19 requires this flag to suppress act() warnings in test environments
@@ -13,6 +13,20 @@ const withFontVariables: Decorator = (Story) => {
     root.style.setProperty("--font-sans", "system-ui, sans-serif");
     root.style.setProperty("--font-geist-sans", "system-ui, sans-serif");
     root.style.setProperty("--font-geist-mono", "ui-monospace, monospace");
+
+    if (!document.getElementById("visual-test-motion-freeze")) {
+      const style = document.createElement("style");
+      style.id = "visual-test-motion-freeze";
+      style.textContent = `
+        *, *::before, *::after {
+          animation: none !important;
+          caret-color: transparent !important;
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }
   return Story();
 };

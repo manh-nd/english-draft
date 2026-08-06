@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Illustrated local avatar</title>
+  <rect width="64" height="64" fill="#e2e8f0"/>
+  <circle cx="32" cy="24" r="12" fill="#64748b"/>
+  <path d="M12 64c2-16 10-24 20-24s18 8 20 24" fill="#475569"/>
+</svg>

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 
 const meta: Meta<typeof Avatar> = {
@@ -13,7 +13,7 @@ type Story = StoryObj<typeof Avatar>;
 export const Default: Story = {
   render: () => (
     <Avatar className="size-10">
-      <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+      <AvatarImage src="/storybook/avatar.svg" alt="Illustrated local avatar" />
       <AvatarFallback>CN</AvatarFallback>
     </Avatar>
   ),
