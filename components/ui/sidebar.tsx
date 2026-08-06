@@ -5,6 +5,10 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  serializeSidebarPinnedPreference,
+  SIDEBAR_PINNED_COOKIE,
+} from "@/lib/sidebar-preference";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,17 +28,17 @@ import {
 } from "@/components/ui/tooltip";
 import { PanelLeftIcon } from "lucide-react";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 type SidebarContextProps = {
-  state: "expanded" | "collapsed";
+  state: "collapsed" | "hover-open" | "pinned-open";
   open: boolean;
-  setOpen: (open: boolean) => void;
+  pinned: boolean;
+  setPinned: React.Dispatch<React.SetStateAction<boolean>>;
+  setHovered: (hovered: boolean) => void;
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
@@ -53,44 +57,47 @@ function useSidebar() {
 }
 
 function SidebarProvider({
-  defaultOpen = true,
-  open: openProp,
-  onOpenChange: setOpenProp,
+  defaultPinned = true,
+  pinned: pinnedProp,
+  onPinnedChange,
   className,
   style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
-  defaultOpen?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  defaultPinned?: boolean;
+  pinned?: boolean;
+  onPinnedChange?: (pinned: boolean) => void;
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
 
-  // This is the internal state of the sidebar.
-  // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
-  const open = openProp ?? _open;
-  const setOpen = React.useCallback(
+  const [uncontrolledPinned, setUncontrolledPinned] =
+    React.useState(defaultPinned);
+  const pinned = pinnedProp ?? uncontrolledPinned;
+  const setPinned = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === "function" ? value(open) : value;
-      if (setOpenProp) {
-        setOpenProp(openState);
+      const pinnedState = typeof value === "function" ? value(pinned) : value;
+      if (onPinnedChange) {
+        onPinnedChange(pinnedState);
       } else {
-        _setOpen(openState);
+        setUncontrolledPinned(pinnedState);
       }
+      setHovered(false);
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      // Only pinning is persisted. Temporary hover state never reaches storage.
+      document.cookie = `${SIDEBAR_PINNED_COOKIE.name}=${serializeSidebarPinnedPreference(pinnedState)}; path=/; max-age=${SIDEBAR_PINNED_COOKIE.maxAge}; SameSite=Lax`;
     },
-    [setOpenProp, open]
+    [onPinnedChange, pinned]
   );
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-  }, [isMobile, setOpen, setOpenMobile]);
+    return isMobile
+      ? setOpenMobile((open) => !open)
+      : setPinned((isPinned) => !isPinned);
+  }, [isMobile, setPinned]);
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -108,21 +115,31 @@ function SidebarProvider({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleSidebar]);
 
-  // We add a state so that we can do data-state="expanded" or "collapsed".
-  // This makes it easier to style the sidebar with Tailwind classes.
-  const state = open ? "expanded" : "collapsed";
+  const state = pinned ? "pinned-open" : hovered ? "hover-open" : "collapsed";
+  const open = state !== "collapsed";
 
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
       state,
       open,
-      setOpen,
+      pinned,
+      setPinned,
+      setHovered,
       isMobile,
       openMobile,
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [
+      state,
+      open,
+      pinned,
+      setPinned,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+    ]
   );
 
   return (
@@ -155,18 +172,23 @@ function Sidebar({
   className,
   children,
   dir,
+  onPointerEnter,
+  onPointerLeave,
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right";
   variant?: "sidebar" | "floating" | "inset";
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, setHovered, openMobile, setOpenMobile } =
+    useSidebar();
 
   if (collapsible === "none") {
     return (
       <div
         data-slot="sidebar"
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
         className={cn(
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
           className
@@ -193,6 +215,8 @@ function Sidebar({
             } as React.CSSProperties
           }
           side={side}
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={onPointerLeave}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>
@@ -212,6 +236,14 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        if (state === "collapsed") setHovered(true);
+      }}
+      onPointerLeave={(event) => {
+        onPointerLeave?.(event);
+        if (state === "hover-open") setHovered(false);
+      }}
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div
@@ -219,6 +251,7 @@ function Sidebar({
         className={cn(
           "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",
           "group-data-[collapsible=offcanvas]:w-0",
+          "group-data-[state=hover-open]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
             ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
@@ -255,7 +288,14 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+  const { isMobile, openMobile, pinned, state, toggleSidebar } = useSidebar();
+  const label = isMobile
+    ? openMobile
+      ? "Close sidebar"
+      : "Open sidebar"
+    : pinned
+      ? "Unpin and collapse sidebar"
+      : "Pin sidebar open";
 
   return (
     <Button
@@ -264,6 +304,11 @@ function SidebarTrigger({
       variant="ghost"
       size="icon-sm"
       className={cn(className)}
+      aria-label={label}
+      aria-expanded={isMobile ? openMobile : state !== "collapsed"}
+      aria-pressed={isMobile ? undefined : pinned}
+      aria-keyshortcuts="Control+B Meta+B"
+      title={`${label} (Ctrl+B)`}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
@@ -271,22 +316,24 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{label}</span>
     </Button>
   );
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-  const { toggleSidebar } = useSidebar();
+  const { pinned, toggleSidebar } = useSidebar();
+  const label = pinned ? "Unpin and collapse sidebar" : "Pin sidebar open";
 
   return (
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
+      aria-label={label}
+      aria-pressed={pinned}
       tabIndex={-1}
       onClick={toggleSidebar}
-      title="Toggle Sidebar"
+      title={label}
       className={cn(
         "absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
         "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
