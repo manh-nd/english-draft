@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Results: Story = {
   render: () => (
-    <Command className="w-80 border" shouldFilter={false}>
+    <Command className="w-80" shouldFilter={false}>
       <CommandInput placeholder="Search documents…" defaultValue="project" />
       <CommandList>
         <CommandGroup heading="Documents">
@@ -43,7 +43,7 @@ export const Results: Story = {
 
 export const Empty: Story = {
   render: () => (
-    <Command className="w-80 border">
+    <Command className="w-80">
       <CommandInput placeholder="Search documents…" defaultValue="missing" />
       <CommandList>
         <CommandEmpty>No documents found.</CommandEmpty>

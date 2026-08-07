@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import {
   Collapsible,
@@ -32,7 +33,7 @@ function FolderDisclosure({ open }: { open: boolean }) {
           Client work
           <ChevronRight
             data-icon="inline-end"
-            className={open ? "ml-auto rotate-90" : "ml-auto"}
+            className={cn("ml-auto", open && "rotate-90")}
           />
         </Button>
       </CollapsibleTrigger>
