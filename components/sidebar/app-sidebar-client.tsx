@@ -44,6 +44,7 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [filter, setFilter] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   const {
     data,
@@ -104,6 +105,15 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
       if (succeeded && id === activeDocumentId) router.replace("/");
     },
     [activeDocumentId, deleteDocument, router]
+  );
+
+  const handleCreateFolder = useCallback(
+    async (name: string) => {
+      const folder = await createFolder(name);
+      if (folder) setIsCreatingFolder(false);
+      return folder;
+    },
+    [createFolder]
   );
 
   return (
@@ -180,7 +190,9 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
                 onRenameDocument={handleRenameDocument}
                 onDeleteDocument={handleDeleteDocument}
                 onMoveDocument={moveDocument}
-                onCreateFolder={createFolder}
+                isCreatingFolder={isCreatingFolder}
+                onCreateFolder={handleCreateFolder}
+                onCancelCreateFolder={() => setIsCreatingFolder(false)}
                 onRenameFolder={renameFolder}
                 onDeleteFolder={deleteFolder}
               />
@@ -188,16 +200,13 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* New Folder button — dispatches a custom event that DocumentTree listens for */}
         <SidebarGroup>
           <SidebarGroupContent>
             <Button
               variant="ghost"
               size="sm"
               className="w-full justify-start"
-              onClick={() => {
-                document.dispatchEvent(new CustomEvent("sidebar:new-folder"));
-              }}
+              onClick={() => setIsCreatingFolder(true)}
             >
               <FolderPlus data-icon="inline-start" />
               New Folder

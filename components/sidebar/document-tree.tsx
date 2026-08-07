@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -37,7 +37,9 @@ interface DocumentTreeProps {
   onRenameDocument: (id: string, title: string) => Promise<void>;
   onDeleteDocument: (id: string) => Promise<void>;
   onMoveDocument: (id: string, folderId: string | null) => Promise<void>;
-  onCreateFolder: (name: string) => Promise<void | SidebarFolder | null>;
+  isCreatingFolder: boolean;
+  onCreateFolder: (name: string) => Promise<SidebarFolder | null>;
+  onCancelCreateFolder: () => void;
   onRenameFolder: (id: string, name: string) => Promise<void>;
   onDeleteFolder: (id: string) => Promise<void>;
 }
@@ -51,24 +53,19 @@ export function DocumentTree({
   onRenameDocument,
   onDeleteDocument,
   onMoveDocument,
+  isCreatingFolder,
   onCreateFolder,
+  onCancelCreateFolder,
   onRenameFolder,
   onDeleteFolder,
 }: DocumentTreeProps) {
   const router = useRouter();
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const [newFolderRenaming, setNewFolderRenaming] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
   const navigate = useCallback(
     (id: string) => router.push(`/documents/${id}`),
     [router]
   );
-
-  useEffect(() => {
-    const handler = () => setNewFolderRenaming(true);
-    document.addEventListener("sidebar:new-folder", handler);
-    return () => document.removeEventListener("sidebar:new-folder", handler);
-  }, []);
 
   const documentsInFolder = (folderId: string) =>
     documents.filter((document) => document.folderId === folderId);
@@ -155,17 +152,14 @@ export function DocumentTree({
           )}
         </SortableContext>
 
-        {newFolderRenaming && (
+        {isCreatingFolder && (
           <SidebarMenuItem>
             <SidebarMenuButton>
               <Folder />
               <InlineRename
                 value=""
-                onCommit={async (name) => {
-                  await onCreateFolder(name);
-                  setNewFolderRenaming(false);
-                }}
-                onCancel={() => setNewFolderRenaming(false)}
+                onCommit={onCreateFolder}
+                onCancel={onCancelCreateFolder}
               />
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -173,7 +167,7 @@ export function DocumentTree({
 
         {visibleFolders.length === 0 &&
           rootDocuments.length === 0 &&
-          !newFolderRenaming && (
+          !isCreatingFolder && (
             <SidebarMenuItem>
               <Empty className="p-2">
                 <EmptyHeader>

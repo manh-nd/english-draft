@@ -1,4 +1,19 @@
-import { expect, test, describe, mock, beforeAll, beforeEach } from "bun:test";
+import {
+  afterEach,
+  expect,
+  test,
+  describe,
+  mock,
+  beforeAll,
+  beforeEach,
+} from "bun:test";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -45,6 +60,17 @@ mock.module("@dnd-kit/sortable", () => ({
 
 const renameDocument = mock(async () => true);
 const deleteDocument = mock(async () => true);
+let folderCreationSucceeds = true;
+const createFolder = mock(async (name: string) =>
+  folderCreationSucceeds
+    ? {
+        id: "folder-1",
+        name,
+        createdAt: "2026-08-07T00:00:00.000Z",
+        updatedAt: "2026-08-07T00:00:00.000Z",
+      }
+    : null
+);
 
 mock.module("@/hooks/use-sidebar-data", () => ({
   useSidebarData: () => ({
@@ -72,10 +98,24 @@ mock.module("@/hooks/use-sidebar-data", () => ({
     renameDocument,
     deleteDocument,
     moveDocument: mock(async () => true),
-    createFolder: mock(async () => null),
+    createFolder,
     renameFolder: mock(async () => true),
     deleteFolder: mock(async () => true),
   }),
+}));
+
+interface SignOutOptions {
+  fetchOptions?: {
+    onSuccess?: () => void;
+  };
+}
+
+const signOut = mock(async (options?: SignOutOptions) => {
+  options?.fetchOptions?.onSuccess?.();
+});
+
+mock.module("@/lib/auth-client", () => ({
+  authClient: { signOut },
 }));
 
 // Setup React 19 dispatcher so components calling hooks (useState/useRef/useEffect) can be invoked directly
@@ -151,6 +191,26 @@ function renderAppSidebarDocumentTree() {
   return tree as React.ReactElement<React.ComponentProps<typeof DocumentTree>>;
 }
 
+function renderAppSidebar() {
+  return render(
+    React.createElement(
+      SidebarProvider,
+      null,
+      React.createElement(AppSidebarClient, {
+        user: {
+          id: "user-1",
+          name: "Test User",
+          email: "test@example.com",
+        },
+      })
+    )
+  );
+}
+
+function getFolderNameInput() {
+  return document.querySelector<HTMLInputElement>("input:not(#sidebar-search)");
+}
+
 describe("Sidebar UI Components - Regression & Hydration Tests", () => {
   beforeEach(() => {
     currentPathname = "/documents/active-document";
@@ -159,8 +219,65 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
     routerRefresh.mockClear();
     renameDocument.mockClear();
     deleteDocument.mockClear();
+    createFolder.mockClear();
+    signOut.mockClear();
+    folderCreationSucceeds = true;
     renameDocument.mockImplementation(async () => true);
     deleteDocument.mockImplementation(async () => true);
+  });
+
+  afterEach(cleanup);
+
+  describe("sidebar actions", () => {
+    async function beginFolderCreation() {
+      renderAppSidebar();
+      fireEvent.click(screen.getByRole("button", { name: "New Folder" }));
+
+      await waitFor(() => expect(getFolderNameInput()).not.toBeNull());
+      return getFolderNameInput() as HTMLInputElement;
+    }
+
+    test("creating a Folder commits its name and closes the editor", async () => {
+      const input = await beginFolderCreation();
+
+      fireEvent.change(input, { target: { value: "Writing" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      await waitFor(() => expect(createFolder).toHaveBeenCalledWith("Writing"));
+      await waitFor(() => expect(getFolderNameInput()).toBeNull());
+    });
+
+    test("cancelling Folder creation closes the editor without creating a Folder", async () => {
+      const input = await beginFolderCreation();
+
+      fireEvent.keyDown(input, { key: "Escape" });
+
+      expect(getFolderNameInput()).toBeNull();
+      expect(createFolder).not.toHaveBeenCalled();
+    });
+
+    test("a failed Folder creation keeps the editor open for retry", async () => {
+      folderCreationSucceeds = false;
+      const input = await beginFolderCreation();
+
+      fireEvent.change(input, { target: { value: "Writing" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      await waitFor(() => expect(createFolder).toHaveBeenCalledWith("Writing"));
+      expect(getFolderNameInput()).not.toBeNull();
+    });
+
+    test("signing out uses the muted Button treatment and returns to login", async () => {
+      renderAppSidebar();
+      const button = screen.getByRole("button", { name: "Sign out" });
+
+      expect(button.dataset.variant).toBe("muted");
+      fireEvent.click(button);
+
+      await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+      expect(routerPush).toHaveBeenCalledWith("/login");
+      expect(routerRefresh).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("active Document mutation synchronization", () => {
@@ -316,7 +433,9 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
           onRenameDocument: async () => {},
           onDeleteDocument: async () => {},
           onMoveDocument: async () => {},
-          onCreateFolder: async () => {},
+          isCreatingFolder: false,
+          onCreateFolder: async () => null,
+          onCancelCreateFolder: () => {},
           onRenameFolder: async () => {},
           onDeleteFolder: async () => {},
         })
@@ -347,7 +466,9 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
             onRenameDocument: async () => {},
             onDeleteDocument: async () => {},
             onMoveDocument: async () => {},
-            onCreateFolder: async () => {},
+            isCreatingFolder: false,
+            onCreateFolder: async () => null,
+            onCancelCreateFolder: () => {},
             onRenameFolder: async () => {},
             onDeleteFolder: async () => {},
           })

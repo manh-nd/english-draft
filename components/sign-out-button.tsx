@@ -21,9 +21,9 @@ export function SignOutButton() {
 
   return (
     <Button
-      variant="ghost"
+      variant="muted"
       size="sm"
-      className="w-full justify-start gap-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+      className="w-full justify-start gap-2"
       onClick={handleSignOut}
     >
       <LogOut data-icon="inline-start" />

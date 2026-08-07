@@ -37,3 +37,10 @@ export const Ghost: Story = {
     variant: "ghost",
   },
 };
+
+export const Muted: Story = {
+  args: {
+    children: "Muted Button",
+    variant: "muted",
+  },
+};
