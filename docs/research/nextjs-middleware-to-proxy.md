@@ -1,8 +1,11 @@
 # Next.js Deprecation: Migrating `middleware` to `proxy`
 
-**Author:** Technical Research Agent  
-**Date:** August 4, 2026  
-**Target File:** `docs/research/nextjs-middleware-to-proxy.md`  
+**Author:** Technical Research Agent
+
+**Date:** August 4, 2026
+
+**Target File:** `docs/research/nextjs-middleware-to-proxy.md`
+
 **Status:** Completed
 
 ---
@@ -26,10 +29,10 @@ This research document analyzes why Next.js introduced this deprecation, details
 
 In Next.js 16, Vercel/Next.js officially deprecated the `middleware.ts` (or `.js`) file convention and introduced `proxy.ts` (or `.js`) as its replacement.
 
-- **Primary Reason for Naming Change:**  
+- **Primary Reason for Naming Change:**
   The term _"middleware"_ was historically overloaded and frequently confused with Node.js/Express.js style backend middleware. Developers often attempted to run heavy server-side business logic, ORM database queries, complex session mutations, or external API calls inside `middleware.ts`. Because middleware runs prior to every request at the network boundary (often on Edge runtime nodes), placing heavy synchronous or database tasks inside middleware introduced severe latency penalties (Time to First Byte / TTFB degradation) and edge timeout errors.
 
-- **Purpose of `proxy.ts`:**  
+- **Purpose of `proxy.ts`:**
   Renaming the convention to **`proxy`** explicitly communicates the architectural intent: it is a **lightweight network proxy gateway**. Its sole responsibility is request interception, header manipulation, path rewrites, dynamic redirects, and initial edge gating. Heavy data fetching and business logic should remain in Route Handlers (`app/api/.../route.ts`), Server Actions, or server components.
 
 ---
@@ -239,11 +242,11 @@ After performing the migration, run the following commands to confirm clean exec
 
 ## 6. Primary Source Citations
 
-- **Next.js Deprecation Warning Page:**  
+- **Next.js Deprecation Warning Page:**
   [https://nextjs.org/docs/messages/middleware-to-proxy](https://nextjs.org/docs/messages/middleware-to-proxy)
-- **Next.js Routing & Proxy Documentation:**  
+- **Next.js Routing & Proxy Documentation:**
   [https://nextjs.org/docs/app/getting-started/proxy](https://nextjs.org/docs/app/getting-started/proxy)
-- **Official Codemod Repository / Command:**  
+- **Official Codemod Repository / Command:**
   `npx @next/codemod@canary middleware-to-proxy`
 - **Local Workspace Dependencies & Source Files:**
   - [`package.json`](file:///Users/manh/english-draft/package.json) (`"next": "16.2.12"`)

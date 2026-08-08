@@ -1,8 +1,11 @@
 # Research Report: Configuring TypeScript Typechecking for `bun:test` in Next.js + Bun
 
-**Author:** Research Agent  
-**Date:** August 4, 2026  
-**Target Path:** `docs/research/typecheck-bun-test.md`  
+**Author:** Research Agent
+
+**Date:** August 4, 2026
+
+**Target Path:** `docs/research/typecheck-bun-test.md`
+
 **Status:** Completed
 
 ---
@@ -183,22 +186,22 @@ Update `"types"` to `["bun"]` and remove test file exclusions from `"exclude"`:
 
 ## 7. Primary References & Documentation
 
-1. **Bun Documentation on TypeScript & Types**  
-   [https://bun.sh/docs/typescript](https://bun.sh/docs/typescript)  
+1. **Bun Documentation on TypeScript & Types**
+   [https://bun.sh/docs/typescript](https://bun.sh/docs/typescript)
    _Official guidance on `@types/bun` installation and `"types": ["bun"]` compiler configuration._
 
-2. **Bun v1.0.19 Release Notes (Deprecation of `bun-types`)**  
-   [https://bun.sh/blog/bun-v1.0.19](https://bun.sh/blog/bun-v1.0.19)  
+2. **Bun v1.0.19 Release Notes (Deprecation of `bun-types`)**
+   [https://bun.sh/blog/bun-v1.0.19](https://bun.sh/blog/bun-v1.0.19)
    _Release announcement details on migrating from `bun-types` to `@types/bun`._
 
-3. **Bun Test Runner Documentation**  
-   [https://bun.sh/docs/cli/test](https://bun.sh/docs/cli/test)  
+3. **Bun Test Runner Documentation**
+   [https://bun.sh/docs/cli/test](https://bun.sh/docs/cli/test)
    _Overview of `bun:test` API module and test execution environment._
 
-4. **Next.js TypeScript Configuration Documentation**  
-   [https://nextjs.org/docs/app/building-your-application/configuring/typescript](https://nextjs.org/docs/app/building-your-application/configuring/typescript)  
+4. **Next.js TypeScript Configuration Documentation**
+   [https://nextjs.org/docs/app/building-your-application/configuring/typescript](https://nextjs.org/docs/app/building-your-application/configuring/typescript)
    _Next.js specification for `tsconfig.json` options, auto-configuration, and App Router route handling._
 
-5. **TypeScript Compiler Options Reference (`types`, `include`, `exclude`)**  
-   [https://www.typescriptlang.org/tsconfig#types](https://www.typescriptlang.org/tsconfig#types)  
+5. **TypeScript Compiler Options Reference (`types`, `include`, `exclude`)**
+   [https://www.typescriptlang.org/tsconfig#types](https://www.typescriptlang.org/tsconfig#types)
    _Official TS reference on ambient type loading and project file resolution rules._

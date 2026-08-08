@@ -1,8 +1,11 @@
 # Research Report: Resolving TypeScript Diagnostics in Storybook Preview (`TS2882` & `TS7017`)
 
-**Author:** Research & Coding Assistant  
-**Date:** August 4, 2026  
-**Target Path:** `docs/research/storybook-preview-ts-errors.md`  
+**Author:** Research & Coding Assistant
+
+**Date:** August 4, 2026
+
+**Target Path:** `docs/research/storybook-preview-ts-errors.md`
+
 **Status:** Completed
 
 ---

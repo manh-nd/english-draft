@@ -1,6 +1,7 @@
 # Research Report: Eliminating `any` Types & `eslint-disable` Comments in Bun & Next.js Test Suite
 
-**Target Document Location:** `docs/research/strict-typing-tests.md`  
+**Target Document Location:** `docs/research/strict-typing-tests.md`
+
 **Status:** Research Completed
 
 ---
