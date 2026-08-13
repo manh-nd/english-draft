@@ -288,14 +288,14 @@ export function createSlashCommandSuggestion(
       onStart: (props) => {
         renderPopup({
           items: props.items,
-          command: (item) => props.command({ ...props, props: item } as never),
+          command: (item) => props.command(item),
           clientRect: props.clientRect ?? null,
         });
       },
       onUpdate: (props) => {
         renderPopup({
           items: props.items,
-          command: (item) => props.command({ ...props, props: item } as never),
+          command: (item) => props.command(item),
           clientRect: props.clientRect ?? null,
         });
       },
