@@ -6,4 +6,4 @@ To eliminate font antialiasing and subpixel rendering discrepancies between macO
 
 The component tier pins Storybook, `@storybook/nextjs-vite`, and `@storybook/addon-docs` to 10.5.7 and uses `@storybook/test-runner` 0.24.4, whose peer range supports Storybook 10. The test runner remains appropriate here because its Node hooks capture and compare local image snapshots.
 
-This approach eliminates reliance on third-party cloud visual testing SaaS platforms such as Chromatic or Percy, at the cost of managing the Docker image locally and maintaining snapshot binary artifacts in Git.
+This approach eliminates reliance on third-party cloud visual testing SaaS platforms such as Chromatic or Percy, at the cost of managing the Docker image locally. Visual snapshot binary artifacts (`__snapshots__/`) are ignored in Git to prevent repository bloat and cross-platform binary merge conflicts.

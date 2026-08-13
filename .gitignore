@@ -40,8 +40,8 @@ test-results/
 e2e/**/__snapshots__/
 *.e2e.ts-snapshots/
 
-# visual snapshots (ignore temporary diffs, track baselines if needed)
-__snapshots__/__diff_output__/
+# visual snapshots (ignored from git to prevent repository bloat and binary conflicts)
+__snapshots__/
 
 # env files (can opt-in for committing if needed)
 .env*
