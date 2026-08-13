@@ -132,3 +132,159 @@
     @apply font-sans;
   }
 }
+
+/* ─── Tiptap Editor ──────────────────────────────────────────────────────── */
+
+.tiptap-editor-wrapper {
+  @apply flex flex-1 flex-col;
+}
+
+.tiptap-editor-content {
+  @apply flex-1 text-foreground;
+  outline: none;
+}
+
+.tiptap-editor-content .tiptap {
+  @apply min-h-[300px];
+  outline: none;
+}
+
+/* Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  @apply text-muted-foreground pointer-events-none float-left h-0;
+  content: attr(data-placeholder);
+}
+
+/* Headings */
+.tiptap h1 {
+  @apply text-3xl font-bold tracking-tight mt-8 mb-4 first:mt-0;
+}
+.tiptap h2 {
+  @apply text-2xl font-semibold tracking-tight mt-6 mb-3;
+}
+.tiptap h3 {
+  @apply text-xl font-semibold tracking-tight mt-4 mb-2;
+}
+
+/* Paragraphs */
+.tiptap p {
+  @apply my-1.5 leading-relaxed;
+}
+
+/* Lists */
+.tiptap ul {
+  @apply list-disc pl-6 my-2;
+}
+.tiptap ol {
+  @apply list-decimal pl-6 my-2;
+}
+.tiptap li {
+  @apply my-0.5;
+}
+.tiptap li p {
+  @apply my-0;
+}
+
+/* Task list */
+.tiptap ul[data-type="taskList"] {
+  @apply list-none pl-0.5 my-2;
+}
+.tiptap ul[data-type="taskList"] li {
+  @apply flex items-start gap-2 my-0.5;
+}
+.tiptap ul[data-type="taskList"] li label {
+  @apply mt-0.5;
+}
+.tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+  @apply size-4 rounded border-border accent-primary;
+}
+
+/* Blockquote */
+.tiptap blockquote {
+  @apply border-l-4 border-border pl-4 italic text-muted-foreground my-4;
+}
+
+/* Code block */
+.tiptap pre {
+  @apply bg-muted rounded-md p-4 my-4 overflow-x-auto;
+}
+.tiptap pre code {
+  @apply font-mono text-sm text-foreground bg-transparent;
+}
+
+/* Inline code */
+.tiptap code {
+  @apply font-mono text-sm bg-muted rounded px-1 py-0.5;
+}
+
+/* Horizontal rule */
+.tiptap hr {
+  @apply border-border my-6;
+}
+
+/* Table */
+.tiptap table {
+  @apply border-collapse w-full my-4 border border-border rounded;
+}
+.tiptap th,
+.tiptap td {
+  @apply border border-border px-3 py-2 text-left text-sm;
+}
+.tiptap th {
+  @apply bg-muted font-semibold;
+}
+
+/* Highlight */
+.tiptap mark {
+  @apply rounded px-0.5;
+}
+
+/* Link */
+.tiptap a {
+  @apply text-primary underline underline-offset-2 hover:text-primary/80 transition-colors;
+}
+
+/* Image */
+.tiptap img {
+  @apply max-w-full rounded-md my-4;
+}
+
+/* ─── Slash Command Menu ─────────────────────────────────────────────────── */
+
+.slash-command-popup {
+  @apply z-50;
+}
+
+.slash-command-menu {
+  @apply bg-popover text-popover-foreground border border-border rounded-lg shadow-lg overflow-y-auto p-1;
+  max-height: 320px;
+  min-width: 240px;
+}
+
+.slash-command-item {
+  @apply flex items-center gap-3 w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors;
+}
+.slash-command-item:hover,
+.slash-command-item.is-selected {
+  @apply bg-accent text-accent-foreground;
+}
+
+.slash-command-icon {
+  @apply flex items-center justify-center size-8 rounded bg-muted text-muted-foreground text-xs font-semibold shrink-0;
+}
+
+.slash-command-text {
+  @apply flex flex-col;
+}
+
+.slash-command-title {
+  @apply text-sm font-medium;
+}
+
+.slash-command-description {
+  @apply text-xs text-muted-foreground;
+}
+
+.slash-command-empty {
+  @apply px-3 py-2 text-sm text-muted-foreground;
+}

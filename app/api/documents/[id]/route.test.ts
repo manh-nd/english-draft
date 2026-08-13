@@ -116,4 +116,29 @@ describe("PATCH /api/documents/:id", () => {
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Folder not found" });
   });
+
+  test("saves content and textContent when provided", async () => {
+    const editorContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }],
+    };
+    const savedDoc = {
+      ...fakeDocument,
+      content: editorContent,
+      textContent: "Hi",
+    };
+    mockUpdateDocument.mockReturnValueOnce(Promise.resolve(savedDoc));
+
+    const res = await PATCH(
+      makeRequest({ content: editorContent, textContent: "Hi" }),
+      routeParams
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(savedDoc);
+    expect(mockUpdateDocument).toHaveBeenCalledWith(USER_ID, DOCUMENT_ID, {
+      content: editorContent,
+      textContent: "Hi",
+    });
+  });
 });

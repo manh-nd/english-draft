@@ -111,7 +111,12 @@ export async function createDocument(
 export async function updateDocument(
   userId: string,
   documentId: string,
-  patch: { title?: string; folderId?: string | null }
+  patch: {
+    title?: string;
+    folderId?: string | null;
+    content?: Record<string, unknown> | null;
+    textContent?: string | null;
+  }
 ): Promise<Document | null> {
   const folderId = patch.folderId;
   return db.transaction(async (tx) => {

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getDocument } from "@/lib/db/documents";
 import { FileText } from "lucide-react";
+import TiptapEditor from "@/components/editor/tiptap-editor";
 
 interface DocumentPageProps {
   params: Promise<{ id: string }>;
@@ -43,12 +44,11 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         </div>
       </div>
 
-      {/* Editor placeholder */}
-      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed">
-        <p className="text-sm text-muted-foreground">
-          Editor coming soon — document loaded ✓
-        </p>
-      </div>
+      {/* Tiptap Editor */}
+      <TiptapEditor
+        documentId={doc.id}
+        initialContent={doc.content as Record<string, unknown> | null}
+      />
     </div>
   );
 }

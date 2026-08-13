@@ -32,7 +32,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const patch: { title?: string; folderId?: string | null } = {};
+  const patch: {
+    title?: string;
+    folderId?: string | null;
+    content?: Record<string, unknown>;
+    textContent?: string;
+  } = {};
   if (typeof body.title === "string") patch.title = body.title.trim();
   if ("folderId" in body) {
     const folderId = body.folderId ?? null;
@@ -43,6 +48,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       );
     }
     patch.folderId = folderId;
+  }
+  if (body.content != null && typeof body.content === "object") {
+    patch.content = body.content;
+  }
+  if (typeof body.textContent === "string") {
+    patch.textContent = body.textContent;
   }
 
   try {

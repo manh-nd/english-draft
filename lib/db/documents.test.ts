@@ -219,6 +219,25 @@ describe("updateDocument", () => {
     expect(result?.folderId).toBeNull();
   });
 
+  test("saves content and textContent when provided", async () => {
+    const editorContent = { type: "doc", content: [{ type: "paragraph" }] };
+    const updated = {
+      ...fakeDoc,
+      content: editorContent,
+      textContent: "Hello from editor",
+    };
+    mockReturning.mockReturnValueOnce([updated]);
+
+    const result = await updateDocument(USER_ID, DOC_ID, {
+      content: editorContent,
+      textContent: "Hello from editor",
+    });
+
+    expect(result?.content).toEqual(editorContent);
+    expect(result?.textContent).toBe("Hello from editor");
+    expect(transactionDB.update).toHaveBeenCalled();
+  });
+
   test("rejects a cross-account folder before changing the document", async () => {
     mockFolderLookup(null);
     const updatesBeforeRequest = transactionDB.update.mock.calls.length;
