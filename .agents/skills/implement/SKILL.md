@@ -13,3 +13,5 @@ Run typechecking regularly, single test files regularly, and the full test suite
 Once done, use /code-review to review the work.
 
 Commit your work to the current branch.
+
+Update the issue checklist by marking completed items as checked (`- [x]`) using `gh issue edit <number> --body "..."`. When all items are complete, close the issue using `gh issue close <number> --comment "..."`.
