@@ -31,93 +31,121 @@ export interface SlashCommandItem {
   command: (args: { editor: Editor; range: Range }) => void;
 }
 
-export const slashCommandItems: SlashCommandItem[] = [
-  {
-    title: "Heading 1",
-    description: "Large section heading",
-    icon: "H1",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run();
+function buildSlashCommandItems(
+  openImagePicker: () => void
+): SlashCommandItem[] {
+  return [
+    {
+      title: "Heading 1",
+      description: "Large section heading",
+      icon: "H1",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .setHeading({ level: 1 })
+          .run();
+      },
     },
-  },
-  {
-    title: "Heading 2",
-    description: "Medium section heading",
-    icon: "H2",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run();
+    {
+      title: "Heading 2",
+      description: "Medium section heading",
+      icon: "H2",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .setHeading({ level: 2 })
+          .run();
+      },
     },
-  },
-  {
-    title: "Heading 3",
-    description: "Small section heading",
-    icon: "H3",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run();
+    {
+      title: "Heading 3",
+      description: "Small section heading",
+      icon: "H3",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .setHeading({ level: 3 })
+          .run();
+      },
     },
-  },
-  {
-    title: "Bullet List",
-    description: "Create a simple bullet list",
-    icon: "•",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBulletList().run();
+    {
+      title: "Bullet List",
+      description: "Create a simple bullet list",
+      icon: "•",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleBulletList().run();
+      },
     },
-  },
-  {
-    title: "Numbered List",
-    description: "Create a numbered list",
-    icon: "1.",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+    {
+      title: "Numbered List",
+      description: "Create a numbered list",
+      icon: "1.",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+      },
     },
-  },
-  {
-    title: "Task List",
-    description: "Track tasks with checkboxes",
-    icon: "☑",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleTaskList().run();
+    {
+      title: "Task List",
+      description: "Track tasks with checkboxes",
+      icon: "☑",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleTaskList().run();
+      },
     },
-  },
-  {
-    title: "Table",
-    description: "Insert a table",
-    icon: "⊞",
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-        .run();
+    {
+      title: "Table",
+      description: "Insert a table",
+      icon: "⊞",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+          .run();
+      },
     },
-  },
-  {
-    title: "Code Block",
-    description: "Insert a code block",
-    icon: "<>",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
+    {
+      title: "Image",
+      description: "Upload an image from your device",
+      icon: "▧",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        openImagePicker();
+      },
     },
-  },
-  {
-    title: "Blockquote",
-    description: "Capture a quote",
-    icon: "❝",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBlockquote().run();
+    {
+      title: "Code Block",
+      description: "Insert a code block",
+      icon: "<>",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
+      },
     },
-  },
-  {
-    title: "Horizontal Rule",
-    description: "Insert a divider",
-    icon: "—",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+    {
+      title: "Blockquote",
+      description: "Capture a quote",
+      icon: "❝",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleBlockquote().run();
+      },
     },
-  },
-];
+    {
+      title: "Horizontal Rule",
+      description: "Insert a divider",
+      icon: "—",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+      },
+    },
+  ];
+}
 
 // ─── React dropdown component ────────────────────────────────────────────────
 
@@ -273,12 +301,13 @@ function SlashCommandPopup({
  */
 export function createSlashCommandSuggestion(
   renderPopup: (state: PopupState | null) => void,
-  getKeyDownHandler: () => ((args: { event: KeyboardEvent }) => boolean) | null
+  getKeyDownHandler: () => ((args: { event: KeyboardEvent }) => boolean) | null,
+  items: SlashCommandItem[]
 ): Omit<SuggestionOptions<SlashCommandItem>, "editor"> {
   return {
     char: "/",
     items: ({ query }) =>
-      slashCommandItems.filter((item) =>
+      items.filter((item) =>
         item.title.toLowerCase().includes(query.toLowerCase())
       ),
     command: ({ editor, range, props }) => {
@@ -314,12 +343,13 @@ export function createSlashCommandSuggestion(
  * initializer closure. ProseMirror reads it lazily via a getter, and
  * the popup writes it via a callback — no React refs are involved.
  */
-export function useSlashCommands() {
+export function useSlashCommands(openImagePicker: () => void) {
   const [popupState, setPopupState] = useState<PopupState | null>(null);
 
   // Stable bundle created once: the extension + a callback to wire keyDown
   const [{ extension, setListRef, getListRef }] = useState(() => {
     let listRef: CommandListRef | null = null;
+    const items = buildSlashCommandItems(openImagePicker);
 
     return {
       extension: Extension.create({
@@ -331,7 +361,8 @@ export function useSlashCommands() {
               editor: this.editor,
               ...createSlashCommandSuggestion(
                 setPopupState,
-                () => listRef?.onKeyDown ?? null
+                () => listRef?.onKeyDown ?? null,
+                items
               ),
             }),
           ];
