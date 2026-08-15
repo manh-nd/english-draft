@@ -19,6 +19,7 @@ import FileHandler from "@tiptap/extension-file-handler";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IMAGE_MIME_TYPES } from "@/lib/images";
+import { InlineSuggestionMenu } from "./inline-suggestion-menu";
 import { useSlashCommands } from "./slash-command-menu";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -251,6 +252,7 @@ export default function TiptapEditor({
         </Alert>
       )}
       <EditorContent editor={editor} />
+      {editor && <InlineSuggestionMenu editor={editor} />}
       {popup}
     </div>
   );
