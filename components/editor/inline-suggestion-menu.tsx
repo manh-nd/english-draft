@@ -7,14 +7,26 @@ import {
   Bold,
   BookMarked,
   Bot,
+  CheckCheck,
+  ChevronDown,
   CircleAlert,
   Code,
   Highlighter,
   Italic,
+  Languages,
+  Sparkles,
+  Wand2,
   X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import {
   type InlineSuggestionAction,
@@ -61,24 +73,32 @@ const INLINE_SUGGESTION_ACTIONS: Array<{
   action: InlineSuggestionAction;
   label: string;
   pendingLabel: string;
+  description: string;
+  icon: typeof Sparkles;
   errorType: "grammar" | "style" | "vocabulary";
 }> = [
   {
     action: "fix-grammar",
     label: "Fix grammar",
     pendingLabel: "Fixing grammar…",
+    description: "Correct spelling, punctuation & syntax",
+    icon: CheckCheck,
     errorType: "grammar",
   },
   {
     action: "improve-style",
     label: "Improve style",
     pendingLabel: "Improving style…",
+    description: "Enhance vocabulary, flow & tone",
+    icon: Wand2,
     errorType: "style",
   },
   {
     action: "make-natural",
     label: "Make natural",
     pendingLabel: "Making natural…",
+    description: "Sound like a native speaker",
+    icon: Languages,
     errorType: "vocabulary",
   },
 ];
@@ -122,6 +142,10 @@ export function InlineSuggestionActions({
   };
 
   const hasHighlight = editor ? editor.isActive("highlight") : false;
+
+  const currentActiveAction = INLINE_SUGGESTION_ACTIONS.find(
+    (a) => a.action === activeAction
+  );
 
   return (
     <div className="relative z-50 flex max-w-fit flex-col gap-1.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm">
@@ -225,27 +249,66 @@ export function InlineSuggestionActions({
           </>
         )}
 
-        {/* ── AI Suggestion Actions ───────────────────────────────── */}
-        {INLINE_SUGGESTION_ACTIONS.map(({ action, label, pendingLabel }) => {
-          const isActive = activeAction === action;
-
-          return (
+        {/* ── AI Suggestions Dropdown ─────────────────────────────── */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
-              key={action}
               type="button"
-              variant="ghost"
+              variant={activeAction !== null ? "secondary" : "ghost"}
               size="sm"
-              className="h-7 px-2 text-xs"
+              className="h-7 gap-1 px-2 text-xs"
               disabled={activeAction !== null || isSavingVocabulary}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => onAction(action)}
-              aria-label={isActive ? pendingLabel : label}
+              aria-label={
+                currentActiveAction
+                  ? currentActiveAction.pendingLabel
+                  : "AI Rewrite"
+              }
             >
-              {isActive && <Spinner data-icon="inline-start" />}
-              {isActive ? pendingLabel : label}
+              {activeAction !== null ? (
+                <>
+                  <Spinner data-icon="inline-start" />
+                  <span>
+                    {currentActiveAction?.pendingLabel ?? "Processing…"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5 text-primary" />
+                  <span>AI Rewrite</span>
+                  <ChevronDown className="size-3 text-muted-foreground opacity-60" />
+                </>
+              )}
             </Button>
-          );
-        })}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            side="top"
+            sideOffset={6}
+            className="w-56 p-1 z-50"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DropdownMenuGroup>
+              {INLINE_SUGGESTION_ACTIONS.map(
+                ({ action, label, description, icon: ActionIcon }) => (
+                  <DropdownMenuItem
+                    key={action}
+                    onSelect={() => onAction(action)}
+                    className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 font-medium text-xs">
+                      <ActionIcon className="size-3.5 text-primary" />
+                      <span>{label}</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground pl-5.5">
+                      {description}
+                    </span>
+                  </DropdownMenuItem>
+                )
+              )}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Separator */}
         <div className="mx-1 h-4 w-px bg-border shrink-0" aria-hidden="true" />

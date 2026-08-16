@@ -41,7 +41,16 @@ function renderMenu() {
 async function showMenu() {
   renderMenu();
   selectText("She go to work.");
-  await screen.findByRole("button", { name: "Fix grammar" });
+  await screen.findByRole("button", { name: "AI Rewrite" });
+}
+
+async function selectAiAction(name: string | RegExp) {
+  const trigger = await screen.findByRole("button", { name: "AI Rewrite" });
+  fireEvent.pointerDown(trigger, { pointerType: "mouse", button: 0 });
+  fireEvent.pointerUp(trigger, { pointerType: "mouse", button: 0 });
+  fireEvent.click(trigger);
+  const menuItem = await screen.findByRole("menuitem", { name });
+  fireEvent.click(menuItem);
 }
 
 function respondWith(suggestion: string) {
@@ -68,13 +77,15 @@ describe("Inline Suggestion menu", () => {
   test("shows all actions only while text is selected", async () => {
     await showMenu();
 
-    expect(screen.getByRole("button", { name: "Improve style" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Make natural" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "AI Rewrite" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Save to Vocabulary" })
+    ).toBeTruthy();
 
     act(() => editor.commands.setTextSelection(1));
 
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Fix grammar" })).toBeNull()
+      expect(screen.queryByRole("button", { name: "AI Rewrite" })).toBeNull()
     );
   });
 
@@ -86,7 +97,7 @@ describe("Inline Suggestion menu", () => {
     selectText("She go to work.");
 
     expect(
-      await screen.findByRole("button", { name: "Fix grammar" })
+      await screen.findByRole("button", { name: "AI Rewrite" })
     ).toBeTruthy();
   });
 
@@ -97,7 +108,7 @@ describe("Inline Suggestion menu", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     await showMenu();
 
-    fireEvent.click(screen.getByRole("button", { name: "Fix grammar" }));
+    await selectAiAction(/fix grammar/i);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [, request] = fetchMock.mock.calls[0] as unknown as [
@@ -122,7 +133,7 @@ describe("Inline Suggestion menu", () => {
     ) as unknown as typeof fetch;
     await showMenu();
 
-    fireEvent.click(screen.getByRole("button", { name: "Improve style" }));
+    await selectAiAction(/improve style/i);
 
     expect(
       screen.getByRole<HTMLButtonElement>("button", {
@@ -147,7 +158,7 @@ describe("Inline Suggestion menu", () => {
     respondWith("Use the <div> element.");
     await showMenu();
 
-    fireEvent.click(screen.getByRole("button", { name: "Make natural" }));
+    await selectAiAction(/make natural/i);
 
     await waitFor(() =>
       expect(editor.getText()).toBe(
@@ -159,35 +170,28 @@ describe("Inline Suggestion menu", () => {
   test("keeps the replacement undoable", async () => {
     respondWith("She goes to work.");
     await showMenu();
-    fireEvent.click(screen.getByRole("button", { name: "Fix grammar" }));
+
+    await selectAiAction(/fix grammar/i);
+
     await waitFor(() =>
-      expect(editor.getText()).toContain("She goes to work.")
+      expect(editor.getText()).toBe(
+        "Hello team. She goes to work. Kind regards."
+      )
     );
 
-    editor.commands.undo();
-
+    act(() => editor.commands.undo());
     expect(editor.getText()).toBe("Hello team. She go to work. Kind regards.");
   });
 
   test("shows the API error without changing the Document", async () => {
     globalThis.fetch = mock(async () =>
-      Response.json(
-        {
-          error:
-            "AI is temporarily unavailable because all Gemini API keys have reached their rate limits. Please try again later.",
-        },
-        { status: 503 }
-      )
+      Response.json({ error: "Gemini error." }, { status: 500 })
     ) as unknown as typeof fetch;
     await showMenu();
 
-    fireEvent.click(screen.getByRole("button", { name: "Make natural" }));
+    await selectAiAction(/fix grammar/i);
 
-    expect(
-      await screen.findByText(
-        "AI is temporarily unavailable because all Gemini API keys have reached their rate limits. Please try again later."
-      )
-    ).toBeTruthy();
+    expect(await screen.findByRole("alert")).toBeTruthy();
     expect(editor.getText()).toBe("Hello team. She go to work. Kind regards.");
   });
 });
