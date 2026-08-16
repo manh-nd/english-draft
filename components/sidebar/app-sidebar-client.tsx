@@ -146,7 +146,7 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
         </SidebarMenu>
 
         {/* Search bar */}
-        <SearchBar value={filter} onChange={setFilter} className="px-1 pb-1" />
+        <SearchBar value={filter} onChange={setFilter} />
       </SidebarHeader>
 
       {/* ── Content ────────────────────────────────────────── */}
