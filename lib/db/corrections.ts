@@ -1,6 +1,6 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { corrections, documents } from "@/db/schema";
+import { corrections, documents, reviewItems } from "@/db/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,6 +8,13 @@ export type Correction = typeof corrections.$inferSelect;
 
 export type CorrectionWithDocument = Correction & {
   documentTitle: string | null;
+  reviewItem?: {
+    id: string;
+    interval: number;
+    easeFactor: number;
+    nextReviewAt: Date;
+    lastReviewedAt: Date | null;
+  } | null;
 };
 
 export type CreateCorrectionInput = {
@@ -20,6 +27,15 @@ export type CreateCorrectionInput = {
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
+/** Count total Corrections saved for a user. */
+export async function countCorrections(userId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(corrections)
+    .where(eq(corrections.userId, userId));
+  return result[0]?.count ?? 0;
+}
+
 /** List all Corrections for a user, newest first. */
 export async function listCorrections(userId: string): Promise<Correction[]> {
   return db
@@ -30,8 +46,8 @@ export async function listCorrections(userId: string): Promise<Correction[]> {
 }
 
 /**
- * List all Corrections for a user with their source document title,
- * newest first.
+ * List all Corrections for a user with their source document title
+ * and SRS Review metadata, newest first.
  */
 export async function listCorrectionsWithDocument(
   userId: string
@@ -40,19 +56,36 @@ export async function listCorrectionsWithDocument(
     .select({
       correction: corrections,
       documentTitle: documents.title,
+      reviewItem: reviewItems,
     })
     .from(corrections)
     .leftJoin(documents, eq(corrections.documentId, documents.id))
+    .leftJoin(
+      reviewItems,
+      and(
+        eq(reviewItems.correctionId, corrections.id),
+        eq(reviewItems.userId, userId)
+      )
+    )
     .where(eq(corrections.userId, userId))
     .orderBy(desc(corrections.createdAt));
 
   return rows.map((r) => ({
     ...r.correction,
     documentTitle: r.documentTitle ?? null,
+    reviewItem: r.reviewItem
+      ? {
+          id: r.reviewItem.id,
+          interval: r.reviewItem.interval,
+          easeFactor: r.reviewItem.easeFactor,
+          nextReviewAt: r.reviewItem.nextReviewAt,
+          lastReviewedAt: r.reviewItem.lastReviewedAt,
+        }
+      : null,
   }));
 }
 
-/** Create a new Correction (auto-saved from an accepted Inline Suggestion). */
+/** Create a new Correction (auto-saved from an accepted Inline Suggestion) and schedule for SRS review. */
 export async function createCorrection(
   userId: string,
   input: CreateCorrectionInput
@@ -68,6 +101,17 @@ export async function createCorrection(
       context: input.context ?? null,
     })
     .returning();
+
+  // Auto-schedule in Spaced Repetition Review
+  await db
+    .insert(reviewItems)
+    .values({
+      userId,
+      source: "correction",
+      correctionId: correction.id,
+    })
+    .catch(() => {});
+
   return correction;
 }
 

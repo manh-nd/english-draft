@@ -29,6 +29,10 @@ interface TiptapEditorProps {
   initialContent: Record<string, unknown> | null;
   /** Called when the user clicks 'Ask AI' in the bubble menu with selected text. */
   onAskAi?: (selectedText: string) => void;
+  /** Called when content updates, with current text and word count. */
+  onContentUpdate?: (info: { text: string; wordCount: number }) => void;
+  /** Called when saving status changes. */
+  onSaveStatusChange?: (status: "saved" | "saving") => void;
 }
 
 async function uploadImage(file: File) {
@@ -58,6 +62,7 @@ async function uploadImage(file: File) {
 function useAutoSave(
   documentId: string,
   getContent: () => { json: Record<string, unknown>; text: string } | null,
+  onSaveStatusChange?: (status: "saved" | "saving") => void,
   debounceMs = 1000
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,7 +78,7 @@ function useAutoSave(
     abortRef.current = controller;
 
     try {
-      await fetch(`/api/documents/${documentId}`, {
+      const res = await fetch(`/api/documents/${documentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,15 +87,19 @@ function useAutoSave(
         }),
         signal: controller.signal,
       });
+      if (res.ok) {
+        onSaveStatusChange?.("saved");
+      }
     } catch {
       // Ignore aborted saves and network errors — the user will re-trigger on next edit
     }
-  }, [documentId, getContent]);
+  }, [documentId, getContent, onSaveStatusChange]);
 
   const scheduleSave = useCallback(() => {
+    onSaveStatusChange?.("saving");
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(save, debounceMs);
-  }, [save, debounceMs]);
+  }, [save, debounceMs, onSaveStatusChange]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -109,6 +118,8 @@ export default function TiptapEditor({
   documentId,
   initialContent,
   onAskAi,
+  onContentUpdate,
+  onSaveStatusChange,
 }: TiptapEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -204,7 +215,11 @@ export default function TiptapEditor({
     };
   }, [editor]);
 
-  const { scheduleSave } = useAutoSave(documentId, getContent);
+  const { scheduleSave } = useAutoSave(
+    documentId,
+    getContent,
+    onSaveStatusChange
+  );
 
   const handleImageSelection = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,16 +232,24 @@ export default function TiptapEditor({
     [editor, uploadAndInsertImages]
   );
 
-  // Listen to editor changes and trigger auto-save
+  // Listen to editor changes and trigger auto-save + content update
   useEffect(() => {
     if (!editor) return;
 
-    const handler = () => scheduleSave();
+    const handler = () => {
+      scheduleSave();
+      if (onContentUpdate) {
+        const text = editor.getText();
+        const trimmed = text.trim();
+        const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+        onContentUpdate({ text, wordCount });
+      }
+    };
     editor.on("update", handler);
     return () => {
       editor.off("update", handler);
     };
-  }, [editor, scheduleSave]);
+  }, [editor, scheduleSave, onContentUpdate]);
 
   return (
     <div className="tiptap-editor-wrapper" aria-busy={isUploading}>

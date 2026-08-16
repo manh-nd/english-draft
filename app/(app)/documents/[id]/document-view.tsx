@@ -1,32 +1,56 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { FileText, Bot } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import TiptapEditor from "@/components/editor/tiptap-editor";
 import { SidePanel } from "@/components/editor/side-panel";
+import {
+  DocumentHeader,
+  type DocumentHeaderFolder,
+} from "@/components/editor/document-header";
 
 interface DocumentViewProps {
   documentId: string;
   documentTitle: string;
+  documentFolderId: string | null;
+  folders: DocumentHeaderFolder[];
   documentUpdatedAt: string;
   initialContent: Record<string, unknown> | null;
+  initialTextContent?: string;
 }
 
 export function DocumentView({
   documentId,
   documentTitle,
+  documentFolderId,
+  folders,
   documentUpdatedAt,
   initialContent,
+  initialTextContent = "",
 }: DocumentViewProps) {
+  const router = useRouter();
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "idle">(
+    "idle"
+  );
+  const [textContent, setTextContent] = useState(initialTextContent);
+  const [wordCount, setWordCount] = useState(() => {
+    const trimmed = initialTextContent.trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
+  });
 
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(documentUpdatedAt));
+  /** Listen for Cmd+J / Ctrl+J to toggle Side Panel */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setSidePanelOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   /** Called from the editor's "Ask AI" bubble-menu action. Opens the panel
    *  and pre-fills the selected-text context banner. */
@@ -35,47 +59,112 @@ export function DocumentView({
     setSidePanelOpen(true);
   }, []);
 
-  return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Editor area */}
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {/* Document header */}
-        <div className="flex items-center gap-3 border-b pb-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-muted">
-            <FileText className="size-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {documentTitle}
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Last edited {formattedDate}
-            </p>
-          </div>
-          {/* Side panel toggle */}
-          <Button
-            variant={sidePanelOpen ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setSidePanelOpen((open) => !open)}
-            aria-label={
-              sidePanelOpen ? "Close AI Assistant" : "Open AI Assistant"
-            }
-            aria-expanded={sidePanelOpen}
-          >
-            <Bot className="size-4" />
-            <span className="ml-1.5 hidden sm:inline">AI Assistant</span>
-          </Button>
-        </div>
+  const handleContentUpdate = useCallback(
+    ({ text, wordCount: count }: { text: string; wordCount: number }) => {
+      setTextContent(text);
+      setWordCount(count);
+    },
+    []
+  );
 
-        {/* Tiptap Editor */}
-        <TiptapEditor
-          documentId={documentId}
-          initialContent={initialContent}
-          onAskAi={handleAskAi}
-        />
+  const handleTitleChange = useCallback(
+    async (newTitle: string) => {
+      try {
+        setSaveStatus("saving");
+        const res = await fetch(`/api/documents/${documentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle }),
+        });
+        if (res.ok) {
+          setSaveStatus("saved");
+          router.refresh();
+          return true;
+        }
+      } catch {
+        // Ignore network errors
+      }
+      return false;
+    },
+    [documentId, router]
+  );
+
+  const handleFolderChange = useCallback(
+    async (newFolderId: string | null) => {
+      try {
+        setSaveStatus("saving");
+        const res = await fetch(`/api/documents/${documentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folderId: newFolderId }),
+        });
+        if (res.ok) {
+          setSaveStatus("saved");
+          router.refresh();
+          return true;
+        }
+      } catch {
+        // Ignore network errors
+      }
+      return false;
+    },
+    [documentId, router]
+  );
+
+  const handleExportMarkdown = useCallback(() => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(textContent);
+    }
+  }, [textContent]);
+
+  const handleExportPlainText = useCallback(() => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(textContent);
+    }
+  }, [textContent]);
+
+  const handleScanDocument = useCallback(() => {
+    setSelectedText(null);
+    setSidePanelOpen(true);
+  }, []);
+
+  return (
+    <div className="flex flex-1 h-full overflow-hidden bg-background">
+      {/* Editor Main Container */}
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto w-full max-w-4xl px-6 py-6 lg:px-12 flex flex-col gap-6">
+          {/* Enhanced Document Header */}
+          <DocumentHeader
+            documentId={documentId}
+            initialTitle={documentTitle}
+            initialFolderId={documentFolderId}
+            folders={folders}
+            updatedAt={documentUpdatedAt}
+            saveStatus={saveStatus}
+            wordCount={wordCount}
+            sidePanelOpen={sidePanelOpen}
+            onToggleSidePanel={() => setSidePanelOpen((open) => !open)}
+            onScanDocument={handleScanDocument}
+            onExportMarkdown={handleExportMarkdown}
+            onExportPlainText={handleExportPlainText}
+            onTitleChange={handleTitleChange}
+            onFolderChange={handleFolderChange}
+          />
+
+          {/* Tiptap Editor */}
+          <div className="min-h-[60vh] focus-within:outline-none">
+            <TiptapEditor
+              documentId={documentId}
+              initialContent={initialContent}
+              onAskAi={handleAskAi}
+              onContentUpdate={handleContentUpdate}
+              onSaveStatusChange={setSaveStatus}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Side Panel */}
+      {/* AI Side Panel */}
       <SidePanel
         documentId={documentId}
         isOpen={sidePanelOpen}

@@ -154,17 +154,73 @@ describe("Inline Suggestion menu", () => {
     });
   });
 
-  test("inserts Gemini output as literal text", async () => {
+  test("displays diff preview and inserts suggestion upon acceptance", async () => {
     respondWith("Use the <div> element.");
     await showMenu();
 
     await selectAiAction(/make natural/i);
 
-    await waitFor(() =>
-      expect(editor.getText()).toBe(
-        "Hello team. Use the <div> element. Kind regards."
-      )
+    // Diff preview dialog should appear
+    const acceptBtn = await screen.findByRole("button", {
+      name: "Accept suggestion",
+    });
+    expect(acceptBtn).toBeTruthy();
+    expect(screen.getByText("Use the <div> element.")).toBeTruthy();
+
+    // Click accept to insert into editor
+    fireEvent.click(acceptBtn);
+
+    expect(editor.getText()).toBe(
+      "Hello team. Use the <div> element. Kind regards."
     );
+  });
+
+  test("dismisses diff preview without changing the document", async () => {
+    respondWith("She goes to work.");
+    await showMenu();
+
+    await selectAiAction(/fix grammar/i);
+
+    const dismissBtn = await screen.findByRole("button", {
+      name: "Dismiss suggestion",
+    });
+    expect(dismissBtn).toBeTruthy();
+
+    fireEvent.click(dismissBtn);
+
+    expect(editor.getText()).toBe("Hello team. She go to work. Kind regards.");
+  });
+
+  test("accepts diff preview via Enter key shortcut on dialog", async () => {
+    respondWith("She goes to work.");
+    await showMenu();
+
+    await selectAiAction(/fix grammar/i);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeTruthy();
+
+    // Press Enter on dialog to accept
+    fireEvent.keyDown(dialog, { key: "Enter" });
+
+    expect(editor.getText()).toBe(
+      "Hello team. She goes to work. Kind regards."
+    );
+  });
+
+  test("dismisses diff preview via Escape key shortcut on dialog", async () => {
+    respondWith("She goes to work.");
+    await showMenu();
+
+    await selectAiAction(/fix grammar/i);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeTruthy();
+
+    // Press Escape on dialog to dismiss
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    expect(editor.getText()).toBe("Hello team. She go to work. Kind regards.");
   });
 
   test("keeps the replacement undoable", async () => {
@@ -173,10 +229,13 @@ describe("Inline Suggestion menu", () => {
 
     await selectAiAction(/fix grammar/i);
 
-    await waitFor(() =>
-      expect(editor.getText()).toBe(
-        "Hello team. She goes to work. Kind regards."
-      )
+    const acceptBtn = await screen.findByRole("button", {
+      name: "Accept suggestion",
+    });
+    fireEvent.click(acceptBtn);
+
+    expect(editor.getText()).toBe(
+      "Hello team. She goes to work. Kind regards."
     );
 
     act(() => editor.commands.undo());

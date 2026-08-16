@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { countDueReviewItems } from "@/lib/db/review";
 import {
   Sidebar,
   SidebarInset,
@@ -26,9 +27,13 @@ export default async function AppLayout({
   }
 
   const { user } = session;
-  const sidebarPinned = parseSidebarPinnedPreference(
-    (await cookies()).get(SIDEBAR_PINNED_COOKIE.name)?.value
-  );
+  const cookieStore = await cookies();
+  const [sidebarPinned, dueCount] = await Promise.all([
+    parseSidebarPinnedPreference(
+      cookieStore.get(SIDEBAR_PINNED_COOKIE.name)?.value
+    ),
+    countDueReviewItems(user.id),
+  ]);
 
   return (
     <SidebarProvider defaultPinned={sidebarPinned}>
@@ -40,6 +45,7 @@ export default async function AppLayout({
             email: user.email,
             image: user.image,
           }}
+          dueReviewCount={dueCount}
         />
         <SidebarRail />
       </Sidebar>

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -44,9 +45,13 @@ interface AppSidebarClientProps {
     email: string;
     image?: string | null;
   };
+  dueReviewCount?: number;
 }
 
-export function AppSidebarClient({ user }: AppSidebarClientProps) {
+export function AppSidebarClient({
+  user,
+  dueReviewCount,
+}: AppSidebarClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [filter, setFilter] = useState("");
@@ -250,9 +255,23 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === "/review"}>
-                  <Link href="/review">
-                    <BrainCircuit className="size-4" />
-                    Review
+                  <Link
+                    href="/review"
+                    className="flex w-full items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BrainCircuit className="size-4" />
+                      <span>Review</span>
+                    </div>
+                    {typeof dueReviewCount === "number" &&
+                      dueReviewCount > 0 && (
+                        <Badge
+                          variant="secondary"
+                          className="h-4.5 min-w-4.5 justify-center rounded-full px-1.5 text-[10px] font-bold bg-primary/15 text-primary"
+                        >
+                          {dueReviewCount > 9 ? "9+" : dueReviewCount}
+                        </Badge>
+                      )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

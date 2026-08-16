@@ -124,11 +124,23 @@ export function useSidebarData() {
   // ── Mutations ───────────────────────────────────────────────────────────────
 
   const createDocument = useCallback(
-    async (folderId?: string | null): Promise<SidebarDocument | null> => {
+    async (
+      folderId?: string | null,
+      initial?: {
+        title?: string;
+        content?: Record<string, unknown>;
+        textContent?: string;
+      }
+    ): Promise<SidebarDocument | null> => {
       const res = await fetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderId: folderId ?? null }),
+        body: JSON.stringify({
+          folderId: folderId ?? null,
+          title: initial?.title,
+          content: initial?.content,
+          textContent: initial?.textContent,
+        }),
       });
       if (!res.ok) return null;
       const doc: SidebarDocument = await res.json();

@@ -10,6 +10,11 @@ export type DocumentListItem = Pick<
   "id" | "title" | "folderId" | "createdAt" | "updatedAt"
 >;
 
+export type DocumentWithFolder = DocumentListItem & {
+  folderName: string | null;
+  textContent: string | null;
+};
+
 export class FolderNotFoundError extends Error {
   constructor() {
     super("Folder not found");
@@ -52,6 +57,38 @@ export async function listDocuments(
     .orderBy(desc(documents.updatedAt));
 }
 
+/** List recent Documents for a user with folder info and textContent for previews. */
+export async function listRecentDocuments(
+  userId: string,
+  limit: number = 6
+): Promise<DocumentWithFolder[]> {
+  const rows = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      folderId: documents.folderId,
+      folderName: folders.name,
+      textContent: documents.textContent,
+      createdAt: documents.createdAt,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .leftJoin(folders, eq(documents.folderId, folders.id))
+    .where(eq(documents.userId, userId))
+    .orderBy(desc(documents.updatedAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    folderId: r.folderId,
+    folderName: r.folderName ?? null,
+    textContent: r.textContent ?? null,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }));
+}
+
 /** Full-text search across Documents using the pre-built GIN index on text_content. */
 export async function searchDocuments(
   userId: string,
@@ -88,17 +125,28 @@ export async function getDocument(
   return doc ?? null;
 }
 
-/** Create a new Document, optionally inside a Folder. */
+/** Create a new Document, optionally inside a Folder and with initial content/title. */
 export async function createDocument(
   userId: string,
-  folderId?: string | null
+  folderId?: string | null,
+  initial?: {
+    title?: string;
+    content?: Record<string, unknown> | null;
+    textContent?: string | null;
+  }
 ): Promise<Document> {
   return db.transaction(async (tx) => {
     if (folderId) await assertOwnedFolder(tx, userId, folderId);
 
     const [doc] = await tx
       .insert(documents)
-      .values({ userId, folderId: folderId ?? null, title: "Untitled" })
+      .values({
+        userId,
+        folderId: folderId ?? null,
+        title: initial?.title?.trim() || "Untitled",
+        content: initial?.content ?? null,
+        textContent: initial?.textContent ?? null,
+      })
       .returning();
     return doc;
   });

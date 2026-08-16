@@ -1,17 +1,29 @@
-import { expect, test, describe, mock, type Mock } from "bun:test";
+import { expect, test, describe, mock } from "bun:test";
 import type { Document } from "./documents";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockReturning = mock<() => unknown[]>(() => []);
-const mockWhere = mock<() => { returning: typeof mockReturning }>(() => ({
-  returning: mockReturning,
-}));
-const mockOrderBy = mock<() => unknown[]>(() => []);
-const mockFrom = mock<
-  () => { where: Mock<() => { orderBy: typeof mockOrderBy }> }
+const mockWhere = mock<
+  () => { returning: typeof mockReturning; orderBy: typeof mockOrderBy }
 >(() => ({
-  where: mock(() => ({ orderBy: mockOrderBy })),
+  returning: mockReturning,
+  orderBy: mockOrderBy,
+}));
+const mockLimit = mock<() => unknown[]>(() => []);
+const mockOrderBy = mock<(...args: unknown[]) => unknown>(() => {
+  const res: unknown[] & { limit?: typeof mockLimit } = [];
+  res.limit = mockLimit;
+  return res;
+});
+const mockLeftJoin = mock<() => { where: typeof mockWhere }>(() => ({
+  where: mockWhere,
+}));
+const mockFrom = mock<
+  () => { where: typeof mockWhere; leftJoin: typeof mockLeftJoin }
+>(() => ({
+  where: mockWhere,
+  leftJoin: mockLeftJoin,
 }));
 const mockSelect = mock<() => { from: typeof mockFrom }>(() => ({
   from: mockFrom,
@@ -70,6 +82,7 @@ mock.module("drizzle-orm", () => ({
 
 import {
   listDocuments,
+  listRecentDocuments,
   searchDocuments,
   getDocument,
   createDocument,
@@ -122,6 +135,25 @@ describe("listDocuments", () => {
   });
 });
 
+describe("listRecentDocuments", () => {
+  test("returns recent documents with folder info", async () => {
+    mockLimit.mockReturnValueOnce([
+      {
+        id: DOC_ID,
+        title: "Recent Document",
+        folderId: FOLDER_ID,
+        folderName: "Work",
+        textContent: "Some snippet",
+        createdAt: fakeDoc.createdAt,
+        updatedAt: fakeDoc.updatedAt,
+      },
+    ]);
+    const result = await listRecentDocuments(USER_ID, 6);
+    expect(result).toHaveLength(1);
+    expect(result[0].folderName).toBe("Work");
+  });
+});
+
 describe("searchDocuments", () => {
   test("returns matching documents", async () => {
     mockOrderBy.mockReturnValueOnce([fakeDoc]);
@@ -160,6 +192,24 @@ describe("createDocument", () => {
     mockReturning.mockReturnValueOnce([{ ...fakeDoc, title: "Untitled" }]);
     const result = await createDocument(USER_ID);
     expect(result.title).toBe("Untitled");
+    expect(transactionDB.insert).toHaveBeenCalled();
+  });
+
+  test("creates with initial title, content, and textContent", async () => {
+    const templateDoc = {
+      ...fakeDoc,
+      title: "Meeting Notes",
+      content: { type: "doc" },
+      textContent: "Agenda",
+    };
+    mockReturning.mockReturnValueOnce([templateDoc]);
+    const result = await createDocument(USER_ID, null, {
+      title: "Meeting Notes",
+      content: { type: "doc" },
+      textContent: "Agenda",
+    });
+    expect(result.title).toBe("Meeting Notes");
+    expect(result.textContent).toBe("Agenda");
     expect(transactionDB.insert).toHaveBeenCalled();
   });
 

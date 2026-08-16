@@ -142,7 +142,41 @@ describe("POST /api/documents", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body).toEqual(fakeDoc);
-    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, null);
+    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, null, {
+      title: undefined,
+      content: undefined,
+      textContent: undefined,
+    });
+  });
+
+  test("creates document with initial title and template content", async () => {
+    mockRequireSession.mockReturnValueOnce(
+      Promise.resolve({ userId: USER_ID })
+    );
+    const templateDoc: Document = {
+      ...fakeDoc,
+      title: "Meeting Notes",
+      textContent: "Agenda...",
+    };
+    mockCreateDocument.mockReturnValueOnce(Promise.resolve(templateDoc));
+    const res = await POST(
+      makeReq(
+        {},
+        {
+          title: "Meeting Notes",
+          content: { type: "doc" },
+          textContent: "Agenda...",
+        }
+      )
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).toEqual(templateDoc);
+    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, null, {
+      title: "Meeting Notes",
+      content: { type: "doc" },
+      textContent: "Agenda...",
+    });
   });
 
   test("creates document inside a folder", async () => {
@@ -153,7 +187,11 @@ describe("POST /api/documents", () => {
     mockCreateDocument.mockReturnValueOnce(Promise.resolve(docWithFolder));
     const res = await POST(makeReq({}, { folderId: FOLDER_ID }));
     expect(res.status).toBe(201);
-    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, FOLDER_ID);
+    expect(mockCreateDocument).toHaveBeenCalledWith(USER_ID, FOLDER_ID, {
+      title: undefined,
+      content: undefined,
+      textContent: undefined,
+    });
   });
 
   test("rejects an invalid Folder identifier", async () => {

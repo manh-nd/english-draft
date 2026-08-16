@@ -15,21 +15,27 @@ mock.module("@/lib/auth", () => ({
   auth: { api: { getSession } },
 }));
 
+mock.module("@/lib/db/review", () => ({
+  countDueReviewItems: async () => 3,
+}));
+
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined }),
 }));
+
+const layoutMockRouter = {
+  push: mock(() => {}),
+  replace: mock(() => {}),
+  refresh: mock(() => {}),
+};
 
 mock.module("next/navigation", () => ({
   redirect: () => {
     throw new Error("Unexpected redirect");
   },
   usePathname: () => "/",
-  useRouter: () => ({
-    push: mock(() => {}),
-    replace: mock(() => {}),
-    refresh: mock(() => {}),
-  }),
+  useRouter: () => layoutMockRouter,
 }));
 
 mock.module("next-themes", () => ({

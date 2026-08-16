@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
+  ArrowRight,
   Bold,
   BookMarked,
   Bot,
+  Check,
   CheckCheck,
   ChevronDown,
   CircleAlert,
@@ -19,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -69,13 +72,14 @@ const HIGHLIGHT_COLORS: HighlightColor[] = [
   },
 ];
 
-const INLINE_SUGGESTION_ACTIONS: Array<{
+export const INLINE_SUGGESTION_ACTIONS: Array<{
   action: InlineSuggestionAction;
   label: string;
   pendingLabel: string;
   description: string;
   icon: typeof Sparkles;
   errorType: "grammar" | "style" | "vocabulary";
+  badgeVariant: "sky" | "violet" | "emerald";
 }> = [
   {
     action: "fix-grammar",
@@ -84,6 +88,7 @@ const INLINE_SUGGESTION_ACTIONS: Array<{
     description: "Correct spelling, punctuation & syntax",
     icon: CheckCheck,
     errorType: "grammar",
+    badgeVariant: "sky",
   },
   {
     action: "improve-style",
@@ -92,6 +97,7 @@ const INLINE_SUGGESTION_ACTIONS: Array<{
     description: "Enhance vocabulary, flow & tone",
     icon: Wand2,
     errorType: "style",
+    badgeVariant: "violet",
   },
   {
     action: "make-natural",
@@ -100,17 +106,203 @@ const INLINE_SUGGESTION_ACTIONS: Array<{
     description: "Sound like a native speaker",
     icon: Languages,
     errorType: "vocabulary",
+    badgeVariant: "emerald",
   },
 ];
 
 const GENERIC_ERROR =
   "The Inline Suggestion could not be generated. Try again.";
 
+export interface PendingSuggestion {
+  action: InlineSuggestionAction;
+  originalText: string;
+  suggestedText: string;
+  errorType: "grammar" | "style" | "vocabulary";
+  contextBefore?: string;
+  contextAfter?: string;
+  from: number;
+  to: number;
+}
+
+interface InlineSuggestionDiffCardProps {
+  suggestion: PendingSuggestion;
+  onAccept: () => void;
+  onDismiss: () => void;
+  onSaveVocabulary: () => void;
+  isSavingVocabulary?: boolean;
+  vocabularySaved?: boolean;
+}
+
+export function InlineSuggestionDiffCard({
+  suggestion,
+  onAccept,
+  onDismiss,
+  onSaveVocabulary,
+  isSavingVocabulary = false,
+  vocabularySaved = false,
+}: InlineSuggestionDiffCardProps) {
+  const actionMeta = INLINE_SUGGESTION_ACTIONS.find(
+    (a) => a.action === suggestion.action
+  );
+  const ActionIcon = actionMeta?.icon ?? Sparkles;
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent | KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        onAccept();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onDismiss();
+      }
+    },
+    [onAccept, onDismiss]
+  );
+
+  // Listen on window for global shortcuts while diff preview is displayed
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  return (
+    <div
+      role="dialog"
+      aria-label="AI Suggestion Diff Preview"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="flex w-[340px] max-w-[90vw] flex-col gap-2.5 rounded-lg border bg-popover/98 p-3 text-popover-foreground shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+    >
+      {/* Header with Title, Category Badge, and Close Button */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ActionIcon className="size-4 text-primary shrink-0" />
+          <span className="text-xs font-semibold truncate">
+            {actionMeta?.label ?? "AI Rewrite"}
+          </span>
+          <Badge
+            variant="secondary"
+            className={`text-[10px] font-medium h-4 px-1.5 rounded-full shrink-0 ${
+              suggestion.errorType === "grammar"
+                ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30"
+                : suggestion.errorType === "style"
+                  ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30"
+                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+            }`}
+          >
+            {suggestion.errorType.toUpperCase()}
+          </Badge>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-6 text-muted-foreground hover:text-foreground shrink-0"
+          onClick={onDismiss}
+          aria-label="Close diff preview"
+        >
+          <X className="size-3.5" />
+        </Button>
+      </div>
+
+      {/* Diff comparison preview */}
+      <div className="flex flex-col gap-2 rounded-md bg-muted/40 p-2.5 text-xs border border-border/50">
+        {/* Original Text (Strikethrough / Red) */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
+            Original
+          </span>
+          <div className="rounded bg-red-500/10 border border-red-500/20 px-2 py-1 font-mono text-xs text-red-700 dark:text-red-300 line-through decoration-red-500/70 break-words leading-relaxed">
+            {suggestion.originalText}
+          </div>
+        </div>
+
+        {/* Arrow Divider */}
+        <div className="flex items-center justify-center py-0.5 text-muted-foreground/60">
+          <ArrowRight className="size-3.5" />
+        </div>
+
+        {/* Suggested Text (Green / Highlight) */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
+            Suggested
+          </span>
+          <div className="rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 font-mono text-xs font-medium text-emerald-800 dark:text-emerald-200 break-words leading-relaxed">
+            {suggestion.suggestedText}
+          </div>
+        </div>
+      </div>
+
+      {/* Actions Footer */}
+      <div className="flex items-center justify-between gap-1.5 pt-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+          disabled={isSavingVocabulary || vocabularySaved}
+          onClick={onSaveVocabulary}
+          aria-label={
+            vocabularySaved
+              ? "Saved to Vocabulary"
+              : isSavingVocabulary
+                ? "Saving…"
+                : "Save to Vocabulary"
+          }
+        >
+          {isSavingVocabulary ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <BookMarked
+              className={`size-3.5 ${vocabularySaved ? "text-primary" : ""}`}
+            />
+          )}
+          <span>{vocabularySaved ? "Saved" : "Save vocab"}</span>
+        </Button>
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={onDismiss}
+            aria-label="Dismiss suggestion"
+          >
+            Dismiss
+            <kbd className="ml-1 rounded border border-border bg-muted px-1 text-[10px] text-muted-foreground">
+              Esc
+            </kbd>
+          </Button>
+
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            className="h-7 gap-1 px-2.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700"
+            onClick={onAccept}
+            aria-label="Accept suggestion"
+          >
+            <Check className="size-3.5" />
+            <span>Accept</span>
+            <kbd className="ml-0.5 rounded bg-emerald-700/60 dark:bg-emerald-800/60 px-1 text-[10px] text-white">
+              ↵
+            </kbd>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface InlineSuggestionActionsProps {
   editor?: Editor;
   activeAction?: InlineSuggestionAction | null;
+  pendingSuggestion?: PendingSuggestion | null;
   error?: string | null;
   onAction: (action: InlineSuggestionAction) => void;
+  onAcceptSuggestion?: () => void;
+  onDismissSuggestion?: () => void;
   onSaveVocabulary: () => void;
   isSavingVocabulary?: boolean;
   vocabularySaved?: boolean;
@@ -120,8 +312,11 @@ interface InlineSuggestionActionsProps {
 export function InlineSuggestionActions({
   editor,
   activeAction = null,
+  pendingSuggestion = null,
   error = null,
   onAction,
+  onAcceptSuggestion,
+  onDismissSuggestion,
   onSaveVocabulary,
   isSavingVocabulary = false,
   vocabularySaved = false,
@@ -146,6 +341,20 @@ export function InlineSuggestionActions({
   const currentActiveAction = INLINE_SUGGESTION_ACTIONS.find(
     (a) => a.action === activeAction
   );
+
+  // If there's an active diff suggestion, render the Diff Card
+  if (pendingSuggestion && onAcceptSuggestion && onDismissSuggestion) {
+    return (
+      <InlineSuggestionDiffCard
+        suggestion={pendingSuggestion}
+        onAccept={onAcceptSuggestion}
+        onDismiss={onDismissSuggestion}
+        onSaveVocabulary={onSaveVocabulary}
+        isSavingVocabulary={isSavingVocabulary}
+        vocabularySaved={vocabularySaved}
+      />
+    );
+  }
 
   return (
     <div className="relative z-50 flex max-w-fit flex-col gap-1.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm">
@@ -336,7 +545,7 @@ export function InlineSuggestionActions({
           <BookMarked
             className={`size-3.5 ${vocabularySaved ? "text-primary" : ""}`}
           />
-          {vocabularySaved ? "Saved" : "Save vocab"}
+          <span>{vocabularySaved ? "Saved" : "Save vocab"}</span>
         </Button>
 
         {/* ── Ask AI ─────────────────────────────────────────────── */}
@@ -427,14 +636,23 @@ export function InlineSuggestionMenu({
 }) {
   const [activeAction, setActiveAction] =
     useState<InlineSuggestionAction | null>(null);
+  const [pendingSuggestion, setPendingSuggestion] =
+    useState<PendingSuggestion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSavingVocabulary, setIsSavingVocabulary] = useState(false);
   const [vocabularySaved, setVocabularySaved] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Reset vocabulary saved state when selection changes
+  // Reset states when selection changes
   useEffect(() => {
-    const handler = () => setVocabularySaved(false);
+    const handler = () => {
+      setVocabularySaved(false);
+      // Only clear pending suggestion if selection collapsed
+      const { from, to } = editor.state.selection;
+      if (from === to) {
+        setPendingSuggestion(null);
+      }
+    };
     editor.on("selectionUpdate", handler);
     return () => {
       editor.off("selectionUpdate", handler);
@@ -448,7 +666,7 @@ export function InlineSuggestionMenu({
     []
   );
 
-  const applySuggestion = useCallback(
+  const fetchSuggestion = useCallback(
     async (action: InlineSuggestionAction) => {
       const { from, to } = editor.state.selection;
       if (from === to) return;
@@ -467,6 +685,7 @@ export function InlineSuggestionMenu({
       abortControllerRef.current?.abort();
       abortControllerRef.current = controller;
       setActiveAction(action);
+      setPendingSuggestion(null);
       setError(null);
 
       try {
@@ -503,26 +722,20 @@ export function InlineSuggestionMenu({
           );
         }
 
-        // Apply correction to editor
-        editor
-          .chain()
-          .focus()
-          .insertContentAt(
-            { from, to },
-            { type: "text", text: result.suggestion }
-          )
-          .run();
-
-        // Auto-save Correction (fire-and-forget)
         const errorType = INLINE_SUGGESTION_ACTIONS.find(
           (a) => a.action === action
         )!.errorType;
-        void saveCorrection({
-          documentId,
+
+        // Stage the suggestion for user review in the Diff Card
+        setPendingSuggestion({
+          action,
           originalText: selectedText,
-          correctedText: result.suggestion,
+          suggestedText: result.suggestion,
           errorType,
-          context: `${contextBefore.slice(-200)}[SELECTED]${contextAfter.slice(0, 200)}`,
+          contextBefore,
+          contextAfter,
+          from,
+          to,
         });
       } catch (requestError) {
         if (
@@ -544,21 +757,60 @@ export function InlineSuggestionMenu({
         }
       }
     },
-    [editor, documentId]
+    [editor]
   );
 
-  const handleSaveVocabulary = useCallback(async () => {
-    const { from, to } = editor.state.selection;
-    if (from === to) return;
+  const handleAcceptSuggestion = useCallback(() => {
+    if (!pendingSuggestion) return;
+    const {
+      from,
+      to,
+      originalText,
+      suggestedText,
+      errorType,
+      contextBefore,
+      contextAfter,
+    } = pendingSuggestion;
 
-    const selectedText = editor.state.doc.textBetween(from, to, " ").trim();
-    if (selectedText.length === 0) return;
+    // Apply correction into the editor
+    editor
+      .chain()
+      .focus()
+      .insertContentAt({ from, to }, { type: "text", text: suggestedText })
+      .run();
+
+    // Auto-save Correction to Correction Bank (fire-and-forget)
+    void saveCorrection({
+      documentId,
+      originalText,
+      correctedText: suggestedText,
+      errorType,
+      context: `${(contextBefore ?? "").slice(-200)}[SELECTED]${(contextAfter ?? "").slice(0, 200)}`,
+    });
+
+    setPendingSuggestion(null);
+  }, [editor, pendingSuggestion, documentId]);
+
+  const handleDismissSuggestion = useCallback(() => {
+    setPendingSuggestion(null);
+  }, []);
+
+  const handleSaveVocabulary = useCallback(async () => {
+    const targetPhrase =
+      pendingSuggestion?.suggestedText ||
+      (() => {
+        const { from, to } = editor.state.selection;
+        if (from === to) return "";
+        return editor.state.doc.textBetween(from, to, " ").trim();
+      })();
+
+    if (!targetPhrase) return;
 
     setIsSavingVocabulary(true);
     setError(null);
 
     try {
-      await saveVocabularyItem({ phrase: selectedText, documentId });
+      await saveVocabularyItem({ phrase: targetPhrase, documentId });
       setVocabularySaved(true);
     } catch (err) {
       setError(
@@ -567,7 +819,7 @@ export function InlineSuggestionMenu({
     } finally {
       setIsSavingVocabulary(false);
     }
-  }, [editor, documentId]);
+  }, [editor, pendingSuggestion, documentId]);
 
   const handleAskAi = useCallback(() => {
     if (!onAskAi) return;
@@ -586,14 +838,17 @@ export function InlineSuggestionMenu({
       updateDelay={0}
       options={{ placement: "top-start", offset: 8 }}
       shouldShow={({ editor: currentEditor, from, to }) =>
-        currentEditor.isEditable && from !== to
+        Boolean(pendingSuggestion || (currentEditor.isEditable && from !== to))
       }
     >
       <InlineSuggestionActions
         editor={editor}
         activeAction={activeAction}
+        pendingSuggestion={pendingSuggestion}
         error={error}
-        onAction={(action) => void applySuggestion(action)}
+        onAction={(action) => void fetchSuggestion(action)}
+        onAcceptSuggestion={handleAcceptSuggestion}
+        onDismissSuggestion={handleDismissSuggestion}
         onSaveVocabulary={() => void handleSaveVocabulary()}
         isSavingVocabulary={isSavingVocabulary}
         vocabularySaved={vocabularySaved}

@@ -11,7 +11,7 @@ const meta = {
     onAction: () => {},
     onSaveVocabulary: () => {},
   },
-  tags: ["autodocs", "ticket-8"],
+  tags: ["autodocs"],
 } satisfies Meta<typeof InlineSuggestionActions>;
 
 export default meta;
@@ -22,6 +22,52 @@ export const Default: Story = {};
 export const Loading: Story = {
   args: {
     activeAction: "improve-style",
+  },
+};
+
+export const DiffPreviewGrammar: Story = {
+  args: {
+    pendingSuggestion: {
+      action: "fix-grammar",
+      originalText: "She go to work yesterday.",
+      suggestedText: "She went to work yesterday.",
+      errorType: "grammar",
+      from: 0,
+      to: 26,
+    },
+    onAcceptSuggestion: () => {},
+    onDismissSuggestion: () => {},
+  },
+};
+
+export const DiffPreviewStyle: Story = {
+  args: {
+    pendingSuggestion: {
+      action: "improve-style",
+      originalText: "I think that this feature is very very good for users.",
+      suggestedText:
+        "This feature offers substantial benefits and convenience for our users.",
+      errorType: "style",
+      from: 0,
+      to: 54,
+    },
+    onAcceptSuggestion: () => {},
+    onDismissSuggestion: () => {},
+  },
+};
+
+export const DiffPreviewVocabulary: Story = {
+  args: {
+    pendingSuggestion: {
+      action: "make-natural",
+      originalText: "I make a party for my birthday.",
+      suggestedText: "I'm throwing a party for my birthday.",
+      errorType: "vocabulary",
+      from: 0,
+      to: 31,
+    },
+    onAcceptSuggestion: () => {},
+    onDismissSuggestion: () => {},
   },
 };
 

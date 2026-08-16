@@ -5,7 +5,9 @@ import { listVocabularyItemsWithDocument } from "@/lib/db/vocabulary";
 import { VocabularyClient } from "./vocabulary-client";
 
 export const metadata = {
-  title: "Vocabulary | English Draft",
+  title: "Vocabulary Bank | English Draft",
+  description:
+    "Curated words, phrases, and idioms saved for Spaced Repetition mastery.",
 };
 
 export default async function VocabularyPage() {
@@ -15,13 +17,7 @@ export default async function VocabularyPage() {
   const items = await listVocabularyItemsWithDocument(session.user.id);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Vocabulary</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Words and phrases you&apos;ve saved for review.
-        </p>
-      </div>
+    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
       <VocabularyClient initialItems={items} />
     </div>
   );

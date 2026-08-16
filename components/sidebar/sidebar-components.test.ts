@@ -22,13 +22,14 @@ const routerPush = mock(() => {});
 const routerReplace = mock(() => {});
 const routerRefresh = mock(() => {});
 let currentPathname = "/";
+const mockRouter = {
+  push: routerPush,
+  replace: routerReplace,
+  refresh: routerRefresh,
+};
 
 mock.module("next/navigation", () => ({
-  useRouter: () => ({
-    push: routerPush,
-    replace: routerReplace,
-    refresh: routerRefresh,
-  }),
+  useRouter: () => mockRouter,
   usePathname: () => currentPathname,
 }));
 
