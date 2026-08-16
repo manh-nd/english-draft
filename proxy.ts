@@ -30,11 +30,6 @@ export function getProxyAction(
     return { action: "redirect", url: loginUrl.toString() };
   }
 
-  // Authenticated user visiting login -> redirect to app home
-  if (hasSession && pathname.startsWith("/login")) {
-    return { action: "redirect", url: new URL("/", baseUrl).toString() };
-  }
-
   return { action: "pass" };
 }
 

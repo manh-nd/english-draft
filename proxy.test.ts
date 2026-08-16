@@ -67,12 +67,10 @@ describe("proxy redirect logic", () => {
       });
     });
 
-    it("redirects /login to / (home)", () => {
-      const res = getProxyAction("/login", true, BASE_URL);
-      expect(res.action).toBe("redirect");
-      if (res.action === "redirect") {
-        expect(res.url).toBe("http://localhost:3000/");
-      }
+    it("allows /login through so the login page can safely verify real DB session", () => {
+      expect(getProxyAction("/login", true, BASE_URL)).toEqual({
+        action: "pass",
+      });
     });
 
     it("allows /api/auth routes through regardless", () => {
