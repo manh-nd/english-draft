@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { BookMarked, CircleAlert } from "lucide-react";
+import { BookMarked, Bot, CircleAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -48,6 +48,7 @@ interface InlineSuggestionActionsProps {
   onSaveVocabulary: () => void;
   isSavingVocabulary?: boolean;
   vocabularySaved?: boolean;
+  onAskAi?: () => void;
 }
 
 export function InlineSuggestionActions({
@@ -57,6 +58,7 @@ export function InlineSuggestionActions({
   onSaveVocabulary,
   isSavingVocabulary = false,
   vocabularySaved = false,
+  onAskAi,
 }: InlineSuggestionActionsProps) {
   return (
     <div className="flex max-w-md flex-col gap-1 border bg-popover p-1 text-popover-foreground shadow-md">
@@ -113,6 +115,26 @@ export function InlineSuggestionActions({
           />
           {vocabularySaved ? "Saved" : "Save vocab"}
         </Button>
+
+        {/* Separator */}
+        {onAskAi && (
+          <>
+            <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+            {/* Ask AI — opens side panel with selected text as context */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={activeAction !== null || isSavingVocabulary}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onAskAi}
+              aria-label="Ask AI about selected text"
+            >
+              <Bot className="size-3.5" />
+              Ask AI
+            </Button>
+          </>
+        )}
       </div>
 
       {error && (
@@ -169,9 +191,11 @@ async function saveVocabularyItem(payload: {
 export function InlineSuggestionMenu({
   editor,
   documentId,
+  onAskAi,
 }: {
   editor: Editor;
   documentId: string;
+  onAskAi?: (selectedText: string) => void;
 }) {
   const [activeAction, setActiveAction] =
     useState<InlineSuggestionAction | null>(null);
@@ -317,6 +341,15 @@ export function InlineSuggestionMenu({
     }
   }, [editor, documentId]);
 
+  const handleAskAi = useCallback(() => {
+    if (!onAskAi) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    const text = editor.state.doc.textBetween(from, to, " ").trim();
+    if (text.length === 0) return;
+    onAskAi(text);
+  }, [editor, onAskAi]);
+
   return (
     <BubbleMenu
       editor={editor}
@@ -334,6 +367,7 @@ export function InlineSuggestionMenu({
         onSaveVocabulary={() => void handleSaveVocabulary()}
         isSavingVocabulary={isSavingVocabulary}
         vocabularySaved={vocabularySaved}
+        onAskAi={onAskAi ? () => handleAskAi() : undefined}
       />
     </BubbleMenu>
   );

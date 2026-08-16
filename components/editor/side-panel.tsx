@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, Send, X, FileText, Loader2 } from "lucide-react";
+import {
+  Bot,
+  Send,
+  X,
+  FileText,
+  Loader2,
+  BookMarked,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ChatMessage } from "@/lib/ai/chat";
@@ -10,12 +18,34 @@ interface SidePanelProps {
   documentId: string;
   isOpen: boolean;
   onClose: () => void;
+  /** Pre-filled selected text from the editor — shown as a context banner. */
+  selectedText?: string | null;
+  /** Called when the user dismisses the selected-text banner. */
+  onClearSelectedText?: () => void;
 }
 
 const GENERIC_ERROR = "The AI could not respond. Try again.";
 
-export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+interface AssistantMessage extends ChatMessage {
+  role: "assistant";
+  savedVocab?: boolean;
+  savingVocab?: boolean;
+}
+
+type DisplayMessage = ChatMessage | AssistantMessage;
+
+function isAssistantMessage(m: DisplayMessage): m is AssistantMessage {
+  return m.role === "assistant";
+}
+
+export function SidePanel({
+  documentId,
+  isOpen,
+  onClose,
+  selectedText,
+  onClearSelectedText,
+}: SidePanelProps) {
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [includeDocument, setIncludeDocument] = useState(false);
@@ -45,12 +75,24 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
     const content = input.trim();
     if (!content || isLoading) return;
 
+    // Build the content sent to the AI — prepend selected text context if present
+    const aiContent =
+      selectedText && selectedText.trim().length > 0
+        ? `Regarding this text: "${selectedText.trim()}"\n\n${content}`
+        : content;
+
+    // But show the user's typed message only (without the injected prefix)
     const userMessage: ChatMessage = { role: "user", content };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    const aiMessages: ChatMessage[] = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: aiContent },
+    ];
+
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setError(null);
     setIsLoading(true);
+    if (onClearSelectedText) onClearSelectedText();
 
     const controller = new AbortController();
     abortRef.current?.abort();
@@ -61,7 +103,7 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: nextMessages,
+          messages: aiMessages,
           includeDocument,
           documentId,
         }),
@@ -79,7 +121,7 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: result.reply! },
+        { role: "assistant", content: result.reply! } as AssistantMessage,
       ]);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -90,7 +132,51 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
         setIsLoading(false);
       }
     }
-  }, [input, isLoading, messages, includeDocument, documentId]);
+  }, [
+    input,
+    isLoading,
+    messages,
+    includeDocument,
+    documentId,
+    selectedText,
+    onClearSelectedText,
+  ]);
+
+  const handleSaveVocab = useCallback(
+    async (msgIndex: number, phrase: string) => {
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === msgIndex && isAssistantMessage(m)
+            ? { ...m, savingVocab: true }
+            : m
+        )
+      );
+      try {
+        const res = await fetch("/api/vocabulary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phrase, documentId }),
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === msgIndex && isAssistantMessage(m)
+              ? { ...m, savedVocab: true, savingVocab: false }
+              : m
+          )
+        );
+      } catch {
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === msgIndex && isAssistantMessage(m)
+              ? { ...m, savingVocab: false }
+              : m
+          )
+        );
+      }
+    },
+    [documentId]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -152,6 +238,27 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
         </label>
       </div>
 
+      {/* Selected text context banner */}
+      {selectedText && selectedText.trim().length > 0 && (
+        <div className="flex items-start gap-2 border-b bg-muted/50 px-4 py-2">
+          <p className="flex-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Context: </span>
+            <span className="line-clamp-2 italic">
+              &ldquo;{selectedText.trim()}&rdquo;
+            </span>
+          </p>
+          {onClearSelectedText && (
+            <button
+              onClick={onClearSelectedText}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="Clear selected text context"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         {messages.length === 0 && (
@@ -160,22 +267,53 @@ export function SidePanel({ documentId, isOpen, onClose }: SidePanelProps) {
             English writing.
           </p>
         )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground"
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+        {messages.map((msg, i) =>
+          msg.role === "user" ? (
+            <div key={i} className="flex justify-end">
+              <div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ) : (
+            <div key={i} className="flex justify-start">
+              <div className="group/bubble relative max-w-[85%]">
+                <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
+                {/* Save phrase button */}
+                <button
+                  onClick={() => void handleSaveVocab(i, msg.content)}
+                  disabled={
+                    isAssistantMessage(msg) &&
+                    (msg.savingVocab === true || msg.savedVocab === true)
+                  }
+                  aria-label={
+                    isAssistantMessage(msg) && msg.savedVocab
+                      ? "Saved to Vocabulary"
+                      : "Save AI response as vocabulary phrase"
+                  }
+                  className={`mt-1 flex items-center gap-1 text-[11px] transition-colors ${
+                    isAssistantMessage(msg) && msg.savedVocab
+                      ? "text-primary"
+                      : "text-muted-foreground opacity-0 hover:text-foreground group-hover/bubble:opacity-100"
+                  }`}
+                >
+                  {isAssistantMessage(msg) && msg.savedVocab ? (
+                    <>
+                      <Check className="size-3" />
+                      Saved
+                    </>
+                  ) : (
+                    <>
+                      <BookMarked className="size-3" />
+                      Save phrase
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )
+        )}
         {isLoading && (
           <div className="flex justify-start">
             <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">

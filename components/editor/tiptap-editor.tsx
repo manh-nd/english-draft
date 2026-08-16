@@ -27,6 +27,8 @@ import { useSlashCommands } from "./slash-command-menu";
 interface TiptapEditorProps {
   documentId: string;
   initialContent: Record<string, unknown> | null;
+  /** Called when the user clicks 'Ask AI' in the bubble menu with selected text. */
+  onAskAi?: (selectedText: string) => void;
 }
 
 async function uploadImage(file: File) {
@@ -106,6 +108,7 @@ function useAutoSave(
 export default function TiptapEditor({
   documentId,
   initialContent,
+  onAskAi,
 }: TiptapEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -253,7 +256,11 @@ export default function TiptapEditor({
       )}
       <EditorContent editor={editor} />
       {editor && (
-        <InlineSuggestionMenu editor={editor} documentId={documentId} />
+        <InlineSuggestionMenu
+          editor={editor}
+          documentId={documentId}
+          onAskAi={onAskAi}
+        />
       )}
       {popup}
     </div>

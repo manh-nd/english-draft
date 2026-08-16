@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { listCorrections } from "@/lib/db/corrections";
+import { listCorrectionsWithDocument } from "@/lib/db/corrections";
 import { CorrectionBankClient } from "./corrections-client";
 
 export const metadata = {
@@ -12,7 +12,7 @@ export default async function CorrectionBankPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const corrections = await listCorrections(session.user.id);
+  const corrections = await listCorrectionsWithDocument(session.user.id);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">

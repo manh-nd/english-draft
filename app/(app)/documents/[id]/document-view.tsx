@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { FileText, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TiptapEditor from "@/components/editor/tiptap-editor";
@@ -20,12 +20,20 @@ export function DocumentView({
   initialContent,
 }: DocumentViewProps) {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
 
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(new Date(documentUpdatedAt));
+
+  /** Called from the editor's "Ask AI" bubble-menu action. Opens the panel
+   *  and pre-fills the selected-text context banner. */
+  const handleAskAi = useCallback((text: string) => {
+    setSelectedText(text);
+    setSidePanelOpen(true);
+  }, []);
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -60,7 +68,11 @@ export function DocumentView({
         </div>
 
         {/* Tiptap Editor */}
-        <TiptapEditor documentId={documentId} initialContent={initialContent} />
+        <TiptapEditor
+          documentId={documentId}
+          initialContent={initialContent}
+          onAskAi={handleAskAi}
+        />
       </div>
 
       {/* Side Panel */}
@@ -68,6 +80,8 @@ export function DocumentView({
         documentId={documentId}
         isOpen={sidePanelOpen}
         onClose={() => setSidePanelOpen(false)}
+        selectedText={selectedText}
+        onClearSelectedText={() => setSelectedText(null)}
       />
     </div>
   );

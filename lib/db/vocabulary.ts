@@ -1,10 +1,14 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { vocabularyItems } from "@/db/schema";
+import { vocabularyItems, documents } from "@/db/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type VocabularyItem = typeof vocabularyItems.$inferSelect;
+
+export type VocabularyItemWithDocument = VocabularyItem & {
+  documentTitle: string | null;
+};
 
 export type CreateVocabularyItemInput = {
   documentId?: string | null;
@@ -24,6 +28,29 @@ export async function listVocabularyItems(
     .from(vocabularyItems)
     .where(eq(vocabularyItems.userId, userId))
     .orderBy(desc(vocabularyItems.createdAt));
+}
+
+/**
+ * List all Vocabulary Items for a user with their source document title,
+ * newest first.
+ */
+export async function listVocabularyItemsWithDocument(
+  userId: string
+): Promise<VocabularyItemWithDocument[]> {
+  const rows = await db
+    .select({
+      item: vocabularyItems,
+      documentTitle: documents.title,
+    })
+    .from(vocabularyItems)
+    .leftJoin(documents, eq(vocabularyItems.documentId, documents.id))
+    .where(eq(vocabularyItems.userId, userId))
+    .orderBy(desc(vocabularyItems.createdAt));
+
+  return rows.map((r) => ({
+    ...r.item,
+    documentTitle: r.documentTitle ?? null,
+  }));
 }
 
 /** Create a new Vocabulary Item. */

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Star, Trash2, BookOpen } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { Star, Trash2, BookOpen, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -10,10 +11,10 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import type { Correction } from "@/lib/db/corrections";
+import type { CorrectionWithDocument } from "@/lib/db/corrections";
 
 interface CorrectionBankClientProps {
-  initialCorrections: Correction[];
+  initialCorrections: CorrectionWithDocument[];
 }
 
 const ERROR_TYPE_LABELS: Record<string, string> = {
@@ -30,12 +31,17 @@ const ERROR_TYPE_COLORS: Record<string, string> = {
     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
 };
 
+type ErrorTypeFilter = "all" | "grammar" | "style" | "vocabulary";
+
 export function CorrectionBankClient({
   initialCorrections,
 }: CorrectionBankClientProps) {
   const [corrections, setCorrections] =
-    useState<Correction[]>(initialCorrections);
+    useState<CorrectionWithDocument[]>(initialCorrections);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [errorTypeFilter, setErrorTypeFilter] =
+    useState<ErrorTypeFilter>("all");
+  const [starredOnly, setStarredOnly] = useState(false);
 
   const setIdPending = (id: string, pending: boolean) => {
     setPendingIds((prev) => {
@@ -51,7 +57,7 @@ export function CorrectionBankClient({
     try {
       const res = await fetch(`/api/corrections/${id}`, { method: "PATCH" });
       if (!res.ok) return;
-      const updated = (await res.json()) as Correction;
+      const updated = (await res.json()) as CorrectionWithDocument;
       setCorrections((prev) => prev.map((c) => (c.id === id ? updated : c)));
     } finally {
       setIdPending(id, false);
@@ -69,8 +75,14 @@ export function CorrectionBankClient({
     }
   }, []);
 
-  const starred = corrections.filter((c) => c.starred);
-  const unstarred = corrections.filter((c) => !c.starred);
+  const filtered = useMemo(() => {
+    return corrections.filter((c) => {
+      if (starredOnly && !c.starred) return false;
+      if (errorTypeFilter !== "all" && c.errorType !== errorTypeFilter)
+        return false;
+      return true;
+    });
+  }, [corrections, errorTypeFilter, starredOnly]);
 
   if (corrections.length === 0) {
     return (
@@ -89,118 +101,130 @@ export function CorrectionBankClient({
     );
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      {starred.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-            Starred ({starred.length})
-          </h2>
-          <CorrectionList
-            corrections={starred}
-            pendingIds={pendingIds}
-            onToggleStar={handleToggleStar}
-            onDelete={handleDelete}
-          />
-        </section>
-      )}
+  const filterTypes: Array<{ value: ErrorTypeFilter; label: string }> = [
+    { value: "all", label: "All" },
+    { value: "grammar", label: "Grammar" },
+    { value: "style", label: "Style" },
+    { value: "vocabulary", label: "Vocabulary" },
+  ];
 
-      {unstarred.length > 0 && (
-        <section>
-          {starred.length > 0 && (
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-              All corrections ({unstarred.length})
-            </h2>
-          )}
-          <CorrectionList
-            corrections={unstarred}
-            pendingIds={pendingIds}
-            onToggleStar={handleToggleStar}
-            onDelete={handleDelete}
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 rounded-lg border bg-muted p-1">
+          {filterTypes.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setErrorTypeFilter(value)}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                errorTypeFilter === value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setStarredOnly((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+            starredOnly
+              ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Star
+            className={`size-3 ${starredOnly ? "fill-amber-400 text-amber-400" : ""}`}
           />
-        </section>
+          Starred only
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No corrections match the current filters.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filtered.map((correction) => {
+            const isPending = pendingIds.has(correction.id);
+            return (
+              <li
+                key={correction.id}
+                className="group flex items-start gap-3 rounded-lg border bg-card px-4 py-3"
+              >
+                <div className="flex-1 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                        ERROR_TYPE_COLORS[correction.errorType] ?? ""
+                      }`}
+                    >
+                      {ERROR_TYPE_LABELS[correction.errorType] ??
+                        correction.errorType}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Intl.DateTimeFormat("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      }).format(new Date(correction.createdAt))}
+                    </span>
+                    {correction.documentId && correction.documentTitle && (
+                      <Link
+                        href={`/documents/${correction.documentId}`}
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <FileText className="size-3" />
+                        {correction.documentTitle}
+                      </Link>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1">
+                    <p className="text-sm line-through text-muted-foreground">
+                      {correction.originalText}
+                    </p>
+                    <p className="text-sm font-medium">
+                      {correction.correctedText}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    disabled={isPending}
+                    onClick={() => handleToggleStar(correction.id)}
+                    aria-label={
+                      correction.starred ? "Unstar" : "Star correction"
+                    }
+                  >
+                    <Star
+                      className={`size-3.5 ${
+                        correction.starred
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    disabled={isPending}
+                    onClick={() => handleDelete(correction.id)}
+                    aria-label="Delete correction"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
-  );
-}
-
-function CorrectionList({
-  corrections,
-  pendingIds,
-  onToggleStar,
-  onDelete,
-}: {
-  corrections: Correction[];
-  pendingIds: Set<string>;
-  onToggleStar: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <ul className="flex flex-col gap-2">
-      {corrections.map((correction) => {
-        const isPending = pendingIds.has(correction.id);
-        return (
-          <li
-            key={correction.id}
-            className="group flex items-start gap-3 rounded-lg border bg-card px-4 py-3"
-          >
-            <div className="flex-1 overflow-hidden">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                    ERROR_TYPE_COLORS[correction.errorType] ?? ""
-                  }`}
-                >
-                  {ERROR_TYPE_LABELS[correction.errorType] ??
-                    correction.errorType}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  }).format(new Date(correction.createdAt))}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-col gap-1">
-                <p className="text-sm line-through text-muted-foreground">
-                  {correction.originalText}
-                </p>
-                <p className="text-sm font-medium">
-                  {correction.correctedText}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                disabled={isPending}
-                onClick={() => onToggleStar(correction.id)}
-                aria-label={correction.starred ? "Unstar" : "Star correction"}
-              >
-                <Star
-                  className={`size-3.5 ${
-                    correction.starred
-                      ? "fill-amber-400 text-amber-400"
-                      : "text-muted-foreground"
-                  }`}
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-destructive hover:text-destructive"
-                disabled={isPending}
-                onClick={() => onDelete(correction.id)}
-                aria-label="Delete correction"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
   );
 }

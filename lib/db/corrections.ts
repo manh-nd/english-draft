@@ -1,10 +1,14 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { corrections } from "@/db/schema";
+import { corrections, documents } from "@/db/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type Correction = typeof corrections.$inferSelect;
+
+export type CorrectionWithDocument = Correction & {
+  documentTitle: string | null;
+};
 
 export type CreateCorrectionInput = {
   documentId?: string | null;
@@ -23,6 +27,29 @@ export async function listCorrections(userId: string): Promise<Correction[]> {
     .from(corrections)
     .where(eq(corrections.userId, userId))
     .orderBy(desc(corrections.createdAt));
+}
+
+/**
+ * List all Corrections for a user with their source document title,
+ * newest first.
+ */
+export async function listCorrectionsWithDocument(
+  userId: string
+): Promise<CorrectionWithDocument[]> {
+  const rows = await db
+    .select({
+      correction: corrections,
+      documentTitle: documents.title,
+    })
+    .from(corrections)
+    .leftJoin(documents, eq(corrections.documentId, documents.id))
+    .where(eq(corrections.userId, userId))
+    .orderBy(desc(corrections.createdAt));
+
+  return rows.map((r) => ({
+    ...r.correction,
+    documentTitle: r.documentTitle ?? null,
+  }));
 }
 
 /** Create a new Correction (auto-saved from an accepted Inline Suggestion). */

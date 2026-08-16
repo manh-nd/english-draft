@@ -9,6 +9,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Empty,
@@ -259,6 +260,7 @@ export function ReviewSessionClient({ dueItems }: ReviewSessionClientProps) {
   // ── Answering ─────────────────────────────────────────────────────────────
 
   if (state.phase === "answering") {
+    const isFillInBlank = state.exerciseType === "fill-in-blank";
     return (
       <div className="flex max-w-lg flex-col gap-4">
         <ProgressBar current={state.itemIndex + 1} total={items.length} />
@@ -272,20 +274,38 @@ export function ReviewSessionClient({ dueItems }: ReviewSessionClientProps) {
           <p className="whitespace-pre-wrap text-sm">{state.exercisePrompt}</p>
         </div>
         <div className="flex flex-col gap-2">
-          <Textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            placeholder="Type your answer here…"
-            className="min-h-24 text-sm"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) {
-                e.preventDefault();
-                void submitAnswer();
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">Ctrl+Enter to submit</p>
+          {isFillInBlank ? (
+            <Input
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="Type your answer here…"
+              className="text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void submitAnswer();
+                }
+              }}
+            />
+          ) : (
+            <Textarea
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="Type your answer here…"
+              className="min-h-24 text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  e.preventDefault();
+                  void submitAnswer();
+                }
+              }}
+            />
+          )}
+          <p className="text-xs text-muted-foreground">
+            {isFillInBlank ? "Enter to submit" : "Ctrl+Enter to submit"}
+          </p>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button
