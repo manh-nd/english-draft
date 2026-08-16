@@ -252,7 +252,9 @@ export default function TiptapEditor({
         </Alert>
       )}
       <EditorContent editor={editor} />
-      {editor && <InlineSuggestionMenu editor={editor} />}
+      {editor && (
+        <InlineSuggestionMenu editor={editor} documentId={documentId} />
+      )}
       {popup}
     </div>
   );

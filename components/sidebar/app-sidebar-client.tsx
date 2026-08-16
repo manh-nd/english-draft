@@ -28,7 +28,14 @@ import {
   selectSidebarDocuments,
   useDocumentSearch,
 } from "@/hooks/use-document-search";
-import { FileText, Plus, FolderPlus } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  FolderPlus,
+  BookMarked,
+  BookOpen,
+  BrainCircuit,
+} from "lucide-react";
 import Link from "next/link";
 
 interface AppSidebarClientProps {
@@ -211,6 +218,45 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
               <FolderPlus data-icon="inline-start" />
               New Folder
             </Button>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* ── Learning ────────────────────────────────────── */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Learning</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/corrections"}
+                >
+                  <Link href="/corrections">
+                    <BookMarked className="size-4" />
+                    Correction Bank
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/vocabulary"}
+                >
+                  <Link href="/vocabulary">
+                    <BookOpen className="size-4" />
+                    Vocabulary
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/review"}>
+                  <Link href="/review">
+                    <BrainCircuit className="size-4" />
+                    Review
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

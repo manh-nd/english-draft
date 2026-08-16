@@ -9,6 +9,7 @@ const meta = {
   },
   args: {
     onAction: () => {},
+    onSaveVocabulary: () => {},
   },
   tags: ["autodocs", "ticket-8"],
 } satisfies Meta<typeof InlineSuggestionActions>;
@@ -28,5 +29,11 @@ export const QuotaExhausted: Story = {
   args: {
     error:
       "AI is temporarily unavailable because all Gemini API keys have reached their rate limits. Please try again later.",
+  },
+};
+
+export const VocabularySaved: Story = {
+  args: {
+    vocabularySaved: true,
   },
 };

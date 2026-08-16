@@ -33,7 +33,7 @@ function renderMenu() {
   render(
     <>
       <EditorContent editor={editor} />
-      <InlineSuggestionMenu editor={editor} />
+      <InlineSuggestionMenu editor={editor} documentId="doc-1" />
     </>
   );
 }
