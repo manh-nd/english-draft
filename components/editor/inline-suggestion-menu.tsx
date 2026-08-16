@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { BookMarked, Bot, CircleAlert } from "lucide-react";
+import {
+  Bold,
+  BookMarked,
+  Bot,
+  CircleAlert,
+  Code,
+  Highlighter,
+  Italic,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +20,42 @@ import {
   type InlineSuggestionAction,
   type InlineSuggestionRequest,
 } from "@/lib/ai/inline-suggestions";
+
+// ─── Highlight colour palette ─────────────────────────────────────────────────
+
+interface HighlightColor {
+  label: string;
+  color: string;
+  className: string;
+}
+
+const HIGHLIGHT_COLORS: HighlightColor[] = [
+  {
+    label: "Yellow — new word / phrase",
+    color: "#FDE68A",
+    className: "bg-yellow-200",
+  },
+  {
+    label: "Green — correct / good",
+    color: "#A7F3D0",
+    className: "bg-emerald-200",
+  },
+  {
+    label: "Blue — grammar note",
+    color: "#BAE6FD",
+    className: "bg-sky-200",
+  },
+  {
+    label: "Pink — error area",
+    color: "#FBCFE8",
+    className: "bg-pink-200",
+  },
+  {
+    label: "Purple — style note",
+    color: "#DDD6FE",
+    className: "bg-violet-200",
+  },
+];
 
 const INLINE_SUGGESTION_ACTIONS: Array<{
   action: InlineSuggestionAction;
@@ -42,6 +87,7 @@ const GENERIC_ERROR =
   "The Inline Suggestion could not be generated. Try again.";
 
 interface InlineSuggestionActionsProps {
+  editor?: Editor;
   activeAction?: InlineSuggestionAction | null;
   error?: string | null;
   onAction: (action: InlineSuggestionAction) => void;
@@ -52,6 +98,7 @@ interface InlineSuggestionActionsProps {
 }
 
 export function InlineSuggestionActions({
+  editor,
   activeAction = null,
   error = null,
   onAction,
@@ -60,14 +107,125 @@ export function InlineSuggestionActions({
   vocabularySaved = false,
   onAskAi,
 }: InlineSuggestionActionsProps) {
+  const toggleHighlight = (color: string) => {
+    if (!editor) return;
+    if (editor.isActive("highlight", { color })) {
+      editor.chain().focus().unsetHighlight().run();
+    } else {
+      editor.chain().focus().setHighlight({ color }).run();
+    }
+  };
+
+  const removeHighlight = () => {
+    if (!editor) return;
+    editor.chain().focus().unsetHighlight().run();
+  };
+
+  const hasHighlight = editor ? editor.isActive("highlight") : false;
+
   return (
-    <div className="flex max-w-md flex-col gap-1 border bg-popover p-1 text-popover-foreground shadow-md">
+    <div className="flex max-w-fit flex-col gap-1.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm">
       <div
-        className="flex items-center gap-1"
+        className="flex flex-wrap items-center gap-0.5"
         role="toolbar"
         aria-label="Inline Suggestion actions"
         aria-busy={activeAction !== null}
       >
+        {/* ── Rich text formatting (when editor is attached) ──────── */}
+        {editor && (
+          <>
+            <Button
+              type="button"
+              variant={editor.isActive("bold") ? "secondary" : "ghost"}
+              size="icon-xs"
+              className="size-7"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              aria-label="Bold"
+              aria-pressed={editor.isActive("bold")}
+            >
+              <Bold className="size-3.5" />
+            </Button>
+
+            <Button
+              type="button"
+              variant={editor.isActive("italic") ? "secondary" : "ghost"}
+              size="icon-xs"
+              className="size-7"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              aria-label="Italic"
+              aria-pressed={editor.isActive("italic")}
+            >
+              <Italic className="size-3.5" />
+            </Button>
+
+            <Button
+              type="button"
+              variant={editor.isActive("code") ? "secondary" : "ghost"}
+              size="icon-xs"
+              className="size-7"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleCode().run()}
+              aria-label="Inline code"
+              aria-pressed={editor.isActive("code")}
+            >
+              <Code className="size-3.5" />
+            </Button>
+
+            {/* Separator */}
+            <div
+              className="mx-1 h-4 w-px bg-border shrink-0"
+              aria-hidden="true"
+            />
+
+            {/* Highlight color dots */}
+            <div
+              className="flex items-center gap-1 px-0.5"
+              title="Highlight text"
+            >
+              <Highlighter
+                className="size-3 text-muted-foreground shrink-0"
+                aria-hidden="true"
+              />
+              {HIGHLIGHT_COLORS.map(({ label, color, className }) => (
+                <button
+                  key={color}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => toggleHighlight(color)}
+                  aria-label={label}
+                  aria-pressed={editor.isActive("highlight", { color })}
+                  className={`size-3.5 rounded-full border border-black/10 transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${className} ${
+                    editor.isActive("highlight", { color })
+                      ? "ring-2 ring-ring ring-offset-1 scale-110"
+                      : ""
+                  }`}
+                />
+              ))}
+              {hasHighlight && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={removeHighlight}
+                  aria-label="Remove highlight"
+                  title="Remove highlight"
+                  className="flex size-3.5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-2.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Separator */}
+            <div
+              className="mx-1 h-4 w-px bg-border shrink-0"
+              aria-hidden="true"
+            />
+          </>
+        )}
+
+        {/* ── AI Suggestion Actions ───────────────────────────────── */}
         {INLINE_SUGGESTION_ACTIONS.map(({ action, label, pendingLabel }) => {
           const isActive = activeAction === action;
 
@@ -77,6 +235,7 @@ export function InlineSuggestionActions({
               type="button"
               variant="ghost"
               size="sm"
+              className="h-7 px-2 text-xs"
               disabled={activeAction !== null || isSavingVocabulary}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => onAction(action)}
@@ -89,13 +248,14 @@ export function InlineSuggestionActions({
         })}
 
         {/* Separator */}
-        <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+        <div className="mx-1 h-4 w-px bg-border shrink-0" aria-hidden="true" />
 
-        {/* Save to Vocabulary */}
+        {/* ── Save to Vocabulary ─────────────────────────────────── */}
         <Button
           type="button"
           variant="ghost"
           size="sm"
+          className="h-7 px-2 text-xs"
           disabled={
             activeAction !== null || isSavingVocabulary || vocabularySaved
           }
@@ -116,15 +276,18 @@ export function InlineSuggestionActions({
           {vocabularySaved ? "Saved" : "Save vocab"}
         </Button>
 
-        {/* Separator */}
+        {/* ── Ask AI ─────────────────────────────────────────────── */}
         {onAskAi && (
           <>
-            <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-            {/* Ask AI — opens side panel with selected text as context */}
+            <div
+              className="mx-1 h-4 w-px bg-border shrink-0"
+              aria-hidden="true"
+            />
             <Button
               type="button"
               variant="ghost"
               size="sm"
+              className="h-7 px-2 text-xs"
               disabled={activeAction !== null || isSavingVocabulary}
               onMouseDown={(event) => event.preventDefault()}
               onClick={onAskAi}
@@ -138,10 +301,12 @@ export function InlineSuggestionActions({
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertTitle>Inline Suggestion failed</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="py-1.5 px-2.5">
+          <CircleAlert className="size-3.5" />
+          <AlertTitle className="text-xs font-semibold">
+            Inline Suggestion failed
+          </AlertTitle>
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
     </div>
@@ -361,6 +526,7 @@ export function InlineSuggestionMenu({
       }
     >
       <InlineSuggestionActions
+        editor={editor}
         activeAction={activeAction}
         error={error}
         onAction={(action) => void applySuggestion(action)}
