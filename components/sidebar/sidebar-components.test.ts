@@ -231,7 +231,7 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
   describe("sidebar actions", () => {
     async function beginFolderCreation() {
       renderAppSidebar();
-      fireEvent.click(screen.getByRole("button", { name: "New Folder" }));
+      fireEvent.click(screen.getByRole("button", { name: /new folder/i }));
 
       await waitFor(() => expect(getFolderNameInput()).not.toBeNull());
       return getFolderNameInput() as HTMLInputElement;

@@ -152,16 +152,31 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
       {/* ── Content ────────────────────────────────────────── */}
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Documents</SidebarGroupLabel>
-
-          {/* + New Document */}
-          <SidebarGroupAction
-            title="New document"
-            onClick={() => handleCreateDocument(null)}
-          >
-            <Plus />
-            <span className="sr-only">New Document</span>
-          </SidebarGroupAction>
+          <SidebarGroupLabel className="flex items-center justify-between pr-1">
+            <span>Documents</span>
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="size-5 rounded-md p-0 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                onClick={() => setIsCreatingFolder(true)}
+                title="New folder"
+                aria-label="New folder"
+              >
+                <FolderPlus className="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="size-5 rounded-md p-0 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                onClick={() => handleCreateDocument(null)}
+                title="New document"
+                aria-label="New document"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            </div>
+          </SidebarGroupLabel>
 
           <SidebarGroupContent>
             {normalizedQuery && search.status === "loading" && (
@@ -204,20 +219,6 @@ export function AppSidebarClient({ user }: AppSidebarClientProps) {
                 onDeleteFolder={deleteFolder}
               />
             )}
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => setIsCreatingFolder(true)}
-            >
-              <FolderPlus data-icon="inline-start" />
-              New Folder
-            </Button>
           </SidebarGroupContent>
         </SidebarGroup>
 

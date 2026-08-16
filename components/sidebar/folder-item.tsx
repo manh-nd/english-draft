@@ -27,6 +27,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
 import {
   ChevronRight,
   Folder,
@@ -144,11 +145,19 @@ export function FolderItem({
               >
                 {documents.length === 0 ? (
                   <SidebarMenuSubItem>
-                    <Empty className="p-2">
-                      <EmptyHeader>
-                        <EmptyDescription>Empty folder</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
+                    <div className="flex h-7 items-center justify-between px-2 text-xs text-muted-foreground/60">
+                      <span>No documents</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="size-4.5 rounded-sm p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                        onClick={onCreateDocument}
+                        title="New document in folder"
+                        aria-label="New document in folder"
+                      >
+                        <Plus className="size-3" />
+                      </Button>
+                    </div>
                   </SidebarMenuSubItem>
                 ) : (
                   documents.map((document) => (
