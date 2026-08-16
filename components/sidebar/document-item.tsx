@@ -89,13 +89,13 @@ export function DocumentItem({
           <span
             {...attributes}
             {...listeners}
-            className="mr-1 cursor-grab opacity-0 transition-opacity group-hover/doc:opacity-50"
+            className="flex size-3.5 shrink-0 items-center justify-center cursor-grab opacity-0 transition-opacity group-hover/doc:opacity-60"
             onClick={(event) => event.stopPropagation()}
             onDoubleClick={(event) => event.stopPropagation()}
           >
-            <GripVertical />
+            <GripVertical className="size-3" />
           </span>
-          <FileText />
+          <FileText className="size-4 shrink-0" />
 
           {isRenaming ? (
             <InlineRename

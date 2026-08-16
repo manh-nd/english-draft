@@ -91,7 +91,17 @@ export function FolderItem({
                 setIsRenaming(true);
               }}
             >
-              {open ? <FolderOpen /> : <Folder />}
+              <ChevronRight
+                className={cn(
+                  "size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-200",
+                  open && "rotate-90"
+                )}
+              />
+              {open ? (
+                <FolderOpen className="size-4 shrink-0" />
+              ) : (
+                <Folder className="size-4 shrink-0" />
+              )}
               {isRenaming ? (
                 <InlineRename
                   value={folder.name}
@@ -104,12 +114,6 @@ export function FolderItem({
               ) : (
                 <span className="truncate">{folder.name}</span>
               )}
-              <ChevronRight
-                className={cn(
-                  "ml-auto transition-transform",
-                  open && "rotate-90"
-                )}
-              />
             </SidebarMenuButton>
           </CollapsibleTrigger>
 

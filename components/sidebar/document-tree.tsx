@@ -16,7 +16,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { FileText, Folder } from "lucide-react";
+import { ChevronRight, FileText, Folder } from "lucide-react";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import {
   SidebarMenu,
@@ -155,7 +155,8 @@ export function DocumentTree({
         {isCreatingFolder && (
           <SidebarMenuItem>
             <SidebarMenuButton>
-              <Folder />
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+              <Folder className="size-4 shrink-0" />
               <InlineRename
                 value=""
                 onCommit={onCreateFolder}
