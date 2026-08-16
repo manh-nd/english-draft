@@ -20,6 +20,7 @@ import { CircleAlert, LoaderCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IMAGE_MIME_TYPES } from "@/lib/images";
 import { InlineSuggestionMenu } from "./inline-suggestion-menu";
+import { FormattingMenu } from "./formatting-menu";
 import { useSlashCommands } from "./slash-command-menu";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -255,6 +256,7 @@ export default function TiptapEditor({
         </Alert>
       )}
       <EditorContent editor={editor} />
+      {editor && <FormattingMenu editor={editor} />}
       {editor && (
         <InlineSuggestionMenu
           editor={editor}
