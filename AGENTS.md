@@ -34,3 +34,31 @@ Gemini 3.6 Flash, Interactions API, and Live API skills. See `docs/agents/gemini
 ### Rich Text Editor
 
 Tiptap rich text editor skill. See `docs/agents/tiptap.md`.
+
+### Triage
+
+Five-state issue triage machine (`needs-triage` → `wontfix` / `ready-for-agent`). See `docs/agents/triage-skill.md`.
+
+### Planning & Tickets
+
+`to-spec`, `to-tickets`, `wayfinder`, and `implement` skills for turning ideas into executable work. See `docs/agents/planning.md`.
+
+### Code Review
+
+Two-axis review (standards + spec) since a commit, branch, or merge-base. See `docs/agents/code-review.md`.
+
+### Debugging
+
+Structured diagnosis loop for hard bugs and performance regressions. See `docs/agents/debugging.md`.
+
+### Research
+
+Investigate questions against primary sources; capture findings as Markdown. See `docs/agents/research.md`.
+
+### Handoff
+
+Compact a conversation into a handoff document for another agent to pick up. See `docs/agents/handoff.md`.
+
+### Writing for Agents
+
+Write or edit skills and agent docs (`AGENTS.md`, `CLAUDE.md`). See `docs/agents/writing-for-agents.md`.
