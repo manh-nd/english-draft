@@ -124,7 +124,7 @@ export function InlineSuggestionActions({
   const hasHighlight = editor ? editor.isActive("highlight") : false;
 
   return (
-    <div className="flex max-w-fit flex-col gap-1.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm">
+    <div className="relative z-50 flex max-w-fit flex-col gap-1.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm">
       <div
         className="flex flex-wrap items-center gap-0.5"
         role="toolbar"
@@ -518,9 +518,10 @@ export function InlineSuggestionMenu({
   return (
     <BubbleMenu
       editor={editor}
+      className="z-50"
       pluginKey="inlineSuggestionMenu"
       updateDelay={0}
-      options={{ placement: "top", offset: 8 }}
+      options={{ placement: "top-start", offset: 8 }}
       shouldShow={({ editor: currentEditor, from, to }) =>
         currentEditor.isEditable && from !== to
       }
