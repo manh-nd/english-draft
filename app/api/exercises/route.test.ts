@@ -19,6 +19,9 @@ const mockGenerate = mock(
 );
 const mockCreateGeminiService = mock<typeof createGeminiService>(() => ({
   generate: mockGenerate,
+  generateStream: mock(async function* () {}) as unknown as ReturnType<
+    typeof createGeminiService
+  >["generateStream"],
 }));
 class MockGeminiQuotaExhaustedError extends Error {
   constructor() {

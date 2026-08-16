@@ -8,6 +8,7 @@ import {
   DocumentHeader,
   type DocumentHeaderFolder,
 } from "@/components/editor/document-header";
+import { DocumentStatusBar } from "@/components/editor/document-status-bar";
 
 interface DocumentViewProps {
   documentId: string;
@@ -131,9 +132,9 @@ export function DocumentView({
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-background">
       {/* Editor Main Container */}
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-6 py-6 lg:px-12 flex flex-col gap-6">
-          {/* Enhanced Document Header */}
+      <div className="relative flex flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto w-full max-w-4xl px-6 py-6 lg:px-12 flex flex-col gap-6 flex-1">
+          {/* Enhanced Minimalist Document Header */}
           <DocumentHeader
             documentId={documentId}
             initialTitle={documentTitle}
@@ -152,7 +153,7 @@ export function DocumentView({
           />
 
           {/* Tiptap Editor */}
-          <div className="min-h-[60vh] focus-within:outline-none">
+          <div className="min-h-[60vh] focus-within:outline-none pb-12">
             <TiptapEditor
               documentId={documentId}
               initialContent={initialContent}
@@ -161,6 +162,15 @@ export function DocumentView({
               onSaveStatusChange={setSaveStatus}
             />
           </div>
+        </div>
+
+        {/* Subtle Status Bar (Adaptive Focus) */}
+        <div className="sticky bottom-4 z-10 flex justify-end px-6 lg:px-12 pointer-events-none mt-auto pb-2">
+          <DocumentStatusBar
+            wordCount={wordCount}
+            characterCount={textContent.length}
+            className="pointer-events-auto"
+          />
         </div>
       </div>
 

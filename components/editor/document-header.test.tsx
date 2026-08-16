@@ -25,7 +25,7 @@ describe("DocumentHeader component", () => {
     onFolderChange: mock(() => true),
   };
 
-  it("renders document title, breadcrumbs, and word count", () => {
+  it("renders document title, breadcrumbs, and saved status", () => {
     render(<DocumentHeader {...defaultProps} />);
 
     const input = screen.getByDisplayValue("Meeting Notes");
@@ -33,7 +33,6 @@ describe("DocumentHeader component", () => {
 
     expect(screen.getByText("Documents")).toBeDefined();
     expect(screen.getByText("No folder")).toBeDefined();
-    expect(screen.getByText("150 words")).toBeDefined();
     expect(screen.getByText("Saved")).toBeDefined();
   });
 
@@ -46,6 +45,30 @@ describe("DocumentHeader component", () => {
     fireEvent.blur(input);
 
     expect(onTitleChange).toHaveBeenCalledWith("Updated Notes Title");
+  });
+
+  it("handles Enter keydown to commit title and blur", () => {
+    const onTitleChange = mock(() => true);
+    render(<DocumentHeader {...defaultProps} onTitleChange={onTitleChange} />);
+
+    const input = screen.getByDisplayValue("Meeting Notes");
+    fireEvent.change(input, { target: { value: "Committed on Enter" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+
+    expect(onTitleChange).toHaveBeenCalledWith("Committed on Enter");
+  });
+
+  it("handles Escape keydown to revert title to initial", () => {
+    const onTitleChange = mock(() => true);
+    render(<DocumentHeader {...defaultProps} onTitleChange={onTitleChange} />);
+
+    const input = screen.getByDisplayValue("Meeting Notes");
+    fireEvent.change(input, { target: { value: "Draft Title To Discard" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(input).toBeDefined();
+    expect((input as HTMLTextAreaElement).value).toBe("Meeting Notes");
   });
 
   it("triggers AI Assistant and AI Review callbacks on button clicks", () => {

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Folder,
   FolderOpen,
-  ChevronRight,
   Check,
   Loader2,
   Sparkles,
@@ -13,7 +12,6 @@ import {
   Printer,
   Bot,
   FileText,
-  Clock,
   ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,7 +43,7 @@ export interface DocumentHeaderProps {
   folders: DocumentHeaderFolder[];
   updatedAt: string;
   saveStatus: "saved" | "saving" | "idle";
-  wordCount: number;
+  wordCount?: number;
   sidePanelOpen: boolean;
   onToggleSidePanel: () => void;
   onScanDocument: () => void;
@@ -61,7 +59,6 @@ export function DocumentHeader({
   folders,
   updatedAt,
   saveStatus,
-  wordCount,
   sidePanelOpen,
   onToggleSidePanel,
   onScanDocument,
@@ -77,6 +74,8 @@ export function DocumentHeader({
     setTitle(initialTitle || "Untitled");
   }
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(
     initialFolderId
   );
@@ -89,8 +88,19 @@ export function DocumentHeader({
 
   const [copiedStatus, setCopiedStatus] = useState<string | null>(null);
 
-  const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
   const currentFolder = folders.find((f) => f.id === currentFolderId);
+
+  // Auto-resize textarea height to match text content dynamically
+  const adjustHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    adjustHeight();
+  }, [title, adjustHeight]);
 
   const handleTitleCommit = useCallback(async () => {
     const trimmed = title.trim() || "Untitled";
@@ -133,32 +143,34 @@ export function DocumentHeader({
 
   return (
     <TooltipProvider>
-      <header className="flex flex-col gap-3 border-b bg-background/80 pb-4 pt-1 backdrop-blur-sm">
-        {/* Top bar: Breadcrumbs & Meta & Action bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* Breadcrumbs & Folder Selector */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <header className="flex flex-col gap-3 border-b border-border/40 pb-3 pt-1">
+        {/* Top Navigation & Action Row */}
+        <div className="flex items-center justify-between gap-3 text-xs">
+          {/* Left: Breadcrumbs & Folder Selector */}
+          <div className="flex items-center gap-1.5 min-w-0">
             <Link
               href="/"
-              className="flex items-center gap-1 hover:text-foreground transition-colors font-medium"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors shrink-0"
             >
               <FileText className="size-3.5" />
               <span>Documents</span>
             </Link>
 
-            <ChevronRight className="size-3.5 text-muted-foreground/50" />
+            <span className="text-muted-foreground/40 shrink-0 select-none">
+              /
+            </span>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring truncate max-w-[180px] sm:max-w-[240px]"
                 >
-                  <Folder className="size-3.5 text-muted-foreground" />
-                  <span className="max-w-[120px] truncate sm:max-w-[180px]">
+                  <Folder className="size-3.5 shrink-0" />
+                  <span className="truncate">
                     {currentFolder ? currentFolder.name : "No folder"}
                   </span>
-                  <ChevronDown className="size-3 text-muted-foreground" />
+                  <ChevronDown className="size-3 shrink-0 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
@@ -197,53 +209,47 @@ export function DocumentHeader({
             </DropdownMenu>
           </div>
 
-          {/* Right Action Bar */}
-          <div className="flex items-center gap-2">
-            {/* Word count & Reading time */}
+          {/* Right: Minimalist Actions (Save indicator, AI Review, Export, Assistant toggle) */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Minimal Save Status */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="hidden items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-0.5 text-[11px] text-muted-foreground sm:flex cursor-default">
-                  <Clock className="size-3" />
-                  <span>{wordCount} words</span>
-                  <span className="text-muted-foreground/40">•</span>
-                  <span>~{readingTimeMinutes} min</span>
+                <div className="flex items-center gap-1.5 px-1.5 py-0.5 text-[11px] text-muted-foreground cursor-default select-none">
+                  {saveStatus === "saving" ? (
+                    <>
+                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                      <span className="hidden sm:inline">Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="size-1.5 rounded-full bg-emerald-500 inline-block" />
+                      <span className="hidden sm:inline">Saved</span>
+                    </>
+                  )}
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Last edited {formattedDate}
+                {saveStatus === "saving"
+                  ? "Saving changes…"
+                  : `All changes saved • Last edited ${formattedDate}`}
               </TooltipContent>
             </Tooltip>
-
-            {/* Save status badge */}
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground px-1">
-              {saveStatus === "saving" ? (
-                <>
-                  <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                  <span className="hidden md:inline">Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
-                  <span className="hidden md:inline">Saved</span>
-                </>
-              )}
-            </div>
 
             {/* AI Review / Scan Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={onScanDocument}
-                  className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+                  className="h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 >
                   <Sparkles className="size-3.5 text-amber-500" />
                   <span className="hidden sm:inline">AI Review</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Scan entire document for grammar and vocabulary improvements
+                Scan entire document for grammar & vocabulary improvements
               </TooltipContent>
             </Tooltip>
 
@@ -255,7 +261,7 @@ export function DocumentHeader({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="size-8"
+                      className="size-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                       aria-label="Export document"
                     >
                       <Download className="size-3.5" />
@@ -291,18 +297,22 @@ export function DocumentHeader({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={sidePanelOpen ? "default" : "outline"}
+                  variant={sidePanelOpen ? "secondary" : "ghost"}
                   size="sm"
                   onClick={onToggleSidePanel}
-                  className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+                  className={`h-7 gap-1.5 px-2 text-xs font-medium transition-colors ${
+                    sidePanelOpen
+                      ? "bg-accent text-accent-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
                   aria-label={
                     sidePanelOpen ? "Close AI Assistant" : "Open AI Assistant"
                   }
                   aria-expanded={sidePanelOpen}
                 >
                   <Bot className="size-3.5" />
-                  <span className="hidden md:inline">AI Assistant</span>
-                  <kbd className="hidden lg:inline-block rounded bg-background/20 px-1 py-0.5 text-[9px] font-mono leading-none">
+                  <span className="hidden md:inline">Assistant</span>
+                  <kbd className="hidden lg:inline-flex items-center rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground border">
                     ⌘J
                   </kbd>
                 </Button>
@@ -314,27 +324,33 @@ export function DocumentHeader({
           </div>
         </div>
 
-        {/* Inline Editable Document Title */}
-        <div className="group relative">
-          <input
-            type="text"
+        {/* Auto-expanding Title Input */}
+        <div className="group relative pt-1">
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              adjustHeight();
+            }}
             onBlur={handleTitleCommit}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                e.preventDefault();
                 e.currentTarget.blur();
               } else if (e.key === "Escape") {
+                e.preventDefault();
                 setTitle(initialTitle || "Untitled");
                 e.currentTarget.blur();
               }
             }}
             placeholder="Untitled Document"
-            className="w-full bg-transparent text-2xl font-bold tracking-tight text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/40 rounded px-1 -mx-1 transition-all py-0.5"
+            className="w-full resize-none overflow-hidden bg-transparent text-3xl sm:text-4xl font-bold tracking-tight text-foreground placeholder:text-muted-foreground/30 focus:outline-none border-0 p-0 focus-visible:ring-0 focus-visible:outline-none leading-tight"
             aria-label="Document Title"
           />
           {copiedStatus && (
-            <span className="absolute right-0 top-1 text-xs text-primary font-medium animate-in fade-in slide-in-from-top-1">
+            <span className="absolute right-0 top-0 text-xs text-primary font-medium animate-in fade-in slide-in-from-top-1 bg-background/80 px-2 py-0.5 rounded shadow-xs">
               {copiedStatus}
             </span>
           )}

@@ -31,8 +31,36 @@ const withFontVariables: Decorator = (Story) => {
   return Story();
 };
 
+const withTheme: Decorator = (Story, context) => {
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    const theme = context.globals?.theme || "light";
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+  }
+  return Story();
+};
+
 const preview: Preview = {
-  decorators: [withFontVariables],
+  decorators: [withFontVariables, withTheme],
+  globalTypes: {
+    theme: {
+      name: "Theme",
+      description: "Global theme for components",
+      defaultValue: "light",
+      toolbar: {
+        icon: "circlehollow",
+        items: [
+          { value: "light", icon: "sun", title: "Light" },
+          { value: "dark", icon: "moon", title: "Dark" },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
   parameters: {
     layout: "centered",
     controls: {

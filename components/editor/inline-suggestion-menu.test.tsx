@@ -253,4 +253,23 @@ describe("Inline Suggestion menu", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(editor.getText()).toBe("Hello team. She go to work. Kind regards.");
   });
+
+  test("keeps BubbleMenu mounted and renders all action items when AI Rewrite dropdown opens", async () => {
+    await showMenu();
+
+    const trigger = await screen.findByRole("button", { name: "AI Rewrite" });
+    fireEvent.pointerDown(trigger, { pointerType: "mouse", button: 0 });
+    fireEvent.pointerUp(trigger, { pointerType: "mouse", button: 0 });
+    fireEvent.click(trigger);
+
+    expect(
+      await screen.findByRole("menuitem", { name: /fix grammar/i })
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole("menuitem", { name: /improve style/i })
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole("menuitem", { name: /make natural/i })
+    ).toBeTruthy();
+  });
 });

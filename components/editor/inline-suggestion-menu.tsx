@@ -300,6 +300,8 @@ interface InlineSuggestionActionsProps {
   activeAction?: InlineSuggestionAction | null;
   pendingSuggestion?: PendingSuggestion | null;
   error?: string | null;
+  isDropdownOpen?: boolean;
+  onDropdownOpenChange?: (open: boolean) => void;
   onAction: (action: InlineSuggestionAction) => void;
   onAcceptSuggestion?: () => void;
   onDismissSuggestion?: () => void;
@@ -314,6 +316,8 @@ export function InlineSuggestionActions({
   activeAction = null,
   pendingSuggestion = null,
   error = null,
+  isDropdownOpen: controlledOpen,
+  onDropdownOpenChange: controlledOnOpenChange,
   onAction,
   onAcceptSuggestion,
   onDismissSuggestion,
@@ -322,6 +326,11 @@ export function InlineSuggestionActions({
   vocabularySaved = false,
   onAskAi,
 }: InlineSuggestionActionsProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isDropdownOpen =
+    controlledOpen !== undefined ? controlledOpen : uncontrolledOpen;
+  const setDropdownOpen = controlledOnOpenChange ?? setUncontrolledOpen;
+
   const toggleHighlight = (color: string) => {
     if (!editor) return;
     if (editor.isActive("highlight", { color })) {
@@ -459,7 +468,11 @@ export function InlineSuggestionActions({
         )}
 
         {/* ── AI Suggestions Dropdown ─────────────────────────────── */}
-        <DropdownMenu>
+        <DropdownMenu
+          modal={false}
+          open={isDropdownOpen}
+          onOpenChange={setDropdownOpen}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
@@ -502,7 +515,11 @@ export function InlineSuggestionActions({
                 ({ action, label, description, icon: ActionIcon }) => (
                   <DropdownMenuItem
                     key={action}
-                    onSelect={() => onAction(action)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onSelect={() => {
+                      setDropdownOpen(false);
+                      onAction(action);
+                    }}
                     className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
                   >
                     <div className="flex items-center gap-2 font-medium text-xs">
@@ -641,6 +658,7 @@ export function InlineSuggestionMenu({
   const [error, setError] = useState<string | null>(null);
   const [isSavingVocabulary, setIsSavingVocabulary] = useState(false);
   const [vocabularySaved, setVocabularySaved] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Reset states when selection changes
@@ -651,6 +669,7 @@ export function InlineSuggestionMenu({
       const { from, to } = editor.state.selection;
       if (from === to) {
         setPendingSuggestion(null);
+        setIsDropdownOpen(false);
       }
     };
     editor.on("selectionUpdate", handler);
@@ -838,7 +857,11 @@ export function InlineSuggestionMenu({
       updateDelay={0}
       options={{ placement: "top-start", offset: 8 }}
       shouldShow={({ editor: currentEditor, from, to }) =>
-        Boolean(pendingSuggestion || (currentEditor.isEditable && from !== to))
+        Boolean(
+          isDropdownOpen ||
+          pendingSuggestion ||
+          (currentEditor.isEditable && from !== to)
+        )
       }
     >
       <InlineSuggestionActions
@@ -846,6 +869,8 @@ export function InlineSuggestionMenu({
         activeAction={activeAction}
         pendingSuggestion={pendingSuggestion}
         error={error}
+        isDropdownOpen={isDropdownOpen}
+        onDropdownOpenChange={setIsDropdownOpen}
         onAction={(action) => void fetchSuggestion(action)}
         onAcceptSuggestion={handleAcceptSuggestion}
         onDismissSuggestion={handleDismissSuggestion}

@@ -9,8 +9,15 @@ import {
 import { SidePanel } from "./side-panel";
 
 const originalFetch = globalThis.fetch;
+const originalInnerWidth = globalThis.innerWidth;
 
 beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "innerWidth", {
+    writable: true,
+    configurable: true,
+    value: 1200,
+  });
   globalThis.fetch = mock(async () =>
     Response.json(
       { reply: "Here is an explanation of the grammar." },
@@ -21,6 +28,12 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
+  Object.defineProperty(window, "innerWidth", {
+    writable: true,
+    configurable: true,
+    value: originalInnerWidth ?? 1024,
+  });
   globalThis.fetch = originalFetch;
 });
 
@@ -79,8 +92,41 @@ describe("SidePanel component", () => {
     fireEvent.click(sendBtn);
 
     expect(
-      await screen.findByText("Here is an explanation of the grammar.")
+      await screen.findByText(/Here is an explanation of the grammar/i)
     ).toBeTruthy();
+  });
+
+  test("consumes SSE stream chunks correctly", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"text":"Streamed "}\n\n'));
+        controller.enqueue(
+          encoder.encode('data: {"text":"grammar response"}\n\n')
+        );
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+
+    globalThis.fetch = mock(
+      async () =>
+        new Response(stream, {
+          headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+        })
+    ) as unknown as typeof fetch;
+
+    render(<SidePanel documentId="doc-1" isOpen={true} onClose={() => {}} />);
+
+    const input = screen.getByRole("textbox", { name: "Message input" });
+    fireEvent.change(input, {
+      target: { value: "Explain past simple" },
+    });
+
+    const sendBtn = screen.getByRole("button", { name: "Send message" });
+    fireEvent.click(sendBtn);
+
+    expect(await screen.findByText(/Streamed grammar response/i)).toBeTruthy();
   });
 
   test("quick prompt chip triggers immediate message send", async () => {
@@ -121,18 +167,82 @@ describe("SidePanel component", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 
-  test("resizes panel with keyboard arrow keys on resize handle", () => {
+  test("resizes panel with keyboard navigation (Arrow keys, Home, End) and exposes ARIA values", () => {
+    localStorage.clear();
     render(<SidePanel documentId="doc-1" isOpen={true} onClose={() => {}} />);
 
     const handle = screen.getByRole("separator", { name: "Resize Side Panel" });
     const panel = screen.getByRole("complementary", { name: "Side Panel" });
 
-    // ArrowLeft expands
+    expect(handle.getAttribute("aria-valuenow")).toBe("380");
+    expect(handle.getAttribute("aria-valuemin")).toBe("280");
+    expect(Number(handle.getAttribute("aria-valuemax"))).toBeGreaterThanOrEqual(
+      280
+    );
+
+    // ArrowLeft expands (+20px)
     fireEvent.keyDown(handle, { key: "ArrowLeft" });
     expect(panel.style.width).toBe("400px");
+    expect(handle.getAttribute("aria-valuenow")).toBe("400");
+    expect(localStorage.getItem("english-draft:side-panel-width")).toBe("400");
 
-    // ArrowRight shrinks
+    // ArrowRight shrinks (-20px)
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(panel.style.width).toBe("380px");
+    expect(handle.getAttribute("aria-valuenow")).toBe("380");
+    expect(localStorage.getItem("english-draft:side-panel-width")).toBe("380");
+
+    // Home collapses to min (280px)
+    fireEvent.keyDown(handle, { key: "Home" });
+    expect(panel.style.width).toBe("280px");
+    expect(handle.getAttribute("aria-valuenow")).toBe("280");
+
+    // End expands to max
+    fireEvent.keyDown(handle, { key: "End" });
+    const maxVal = handle.getAttribute("aria-valuemax");
+    expect(panel.style.width).toBe(`${maxVal}px`);
+    expect(handle.getAttribute("aria-valuenow")).toBe(maxVal);
+  });
+
+  test("resizes panel via pointer events and pointer capture", () => {
+    localStorage.clear();
+    render(<SidePanel documentId="doc-1" isOpen={true} onClose={() => {}} />);
+
+    const handle = screen.getByRole("separator", { name: "Resize Side Panel" });
+    const panel = screen.getByRole("complementary", { name: "Side Panel" });
+
+    // Mock pointer capture methods
+    handle.setPointerCapture = mock(() => {});
+    handle.hasPointerCapture = mock(() => true);
+    handle.releasePointerCapture = mock(() => {});
+
+    // Pointer down to initiate drag
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0 });
+    expect(handle.setPointerCapture).toHaveBeenCalledWith(1);
+
+    // Pointer up to finish drag at a specific coordinate
+    Object.defineProperty(window, "innerWidth", {
+      writable: true,
+      configurable: true,
+      value: 1000,
+    });
+    fireEvent(
+      window,
+      new PointerEvent("pointerup", {
+        pointerId: 1,
+        clientX: 650, // 1000 - 650 = 350px
+      })
+    );
+
+    expect(panel.style.width).toBe("350px");
+    expect(localStorage.getItem("english-draft:side-panel-width")).toBe("350");
+  });
+
+  test("restores width from localStorage on initialization", () => {
+    localStorage.setItem("english-draft:side-panel-width", "460");
+    render(<SidePanel documentId="doc-1" isOpen={true} onClose={() => {}} />);
+
+    const panel = screen.getByRole("complementary", { name: "Side Panel" });
+    expect(panel.style.width).toBe("460px");
   });
 });

@@ -84,5 +84,44 @@ export function createGeminiService() {
 
       throw new GeminiQuotaExhaustedError(lastRateLimitError);
     },
+
+    async generateStream(
+      prompt: string,
+      { model = GEMINI_MODELS.FLASH_LITE }: GenerateOptions = {}
+    ): Promise<AsyncIterable<{ text?: string | null }>> {
+      let lastRateLimitError: unknown;
+      const modelFallbackChain: GeminiModel[] =
+        model === GEMINI_MODELS.FLASH
+          ? [GEMINI_MODELS.FLASH, GEMINI_MODELS.FLASH_LITE]
+          : [GEMINI_MODELS.FLASH_LITE];
+
+      for (const attemptedModel of modelFallbackChain) {
+        const startingClientIndex = nextClientByModel.get(attemptedModel) ?? 0;
+        nextClientByModel.set(
+          attemptedModel,
+          (startingClientIndex + 1) % clients.length
+        );
+
+        for (let attempt = 0; attempt < clients.length; attempt += 1) {
+          const clientIndex = (startingClientIndex + attempt) % clients.length;
+
+          try {
+            const responseStream = await clients[
+              clientIndex
+            ].models.generateContentStream({
+              model: attemptedModel,
+              contents: prompt,
+            });
+
+            return responseStream;
+          } catch (error) {
+            if (!isRateLimitError(error)) throw error;
+            lastRateLimitError = error;
+          }
+        }
+      }
+
+      throw new GeminiQuotaExhaustedError(lastRateLimitError);
+    },
   };
 }

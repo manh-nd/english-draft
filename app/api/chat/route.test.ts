@@ -16,15 +16,26 @@ mock.module("@/lib/api/require-session", () => ({
 const mockGenerate = mock(
   async () => "That is a great question about grammar!"
 );
+const mockGenerateStream = mock(async function* () {
+  yield { text: "That is " };
+  yield { text: "a great question " };
+  yield { text: "about grammar!" };
+});
+
 const mockCreateGeminiService = mock<typeof createGeminiService>(() => ({
   generate: mockGenerate,
+  generateStream: mockGenerateStream as unknown as ReturnType<
+    typeof createGeminiService
+  >["generateStream"],
 }));
+
 class MockGeminiQuotaExhaustedError extends Error {
   constructor() {
     super("quota exhausted");
     this.name = "GeminiQuotaExhaustedError";
   }
 }
+
 mock.module("@/lib/ai/gemini", () => ({
   createGeminiService: mockCreateGeminiService,
   GeminiQuotaExhaustedError: MockGeminiQuotaExhaustedError,
@@ -97,7 +108,32 @@ describe("POST /api/chat", () => {
     expect(res.status).toBe(400);
   });
 
-  test("returns AI reply for valid messages", async () => {
+  test("returns SSE stream for valid streaming messages", async () => {
+    mockRequireSession.mockReturnValueOnce(
+      Promise.resolve({ userId: "user-1" })
+    );
+    const res = await POST(
+      makeReq({
+        messages: [{ role: "user", content: "What is present perfect?" }],
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    // Read the stream response
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let streamText = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      streamText += decoder.decode(value);
+    }
+    expect(streamText).toContain('data: {"text":"That is "}');
+    expect(streamText).toContain("data: [DONE]");
+  });
+
+  test("returns JSON when stream is false", async () => {
     mockRequireSession.mockReturnValueOnce(
       Promise.resolve({ userId: "user-1" })
     );
@@ -105,6 +141,7 @@ describe("POST /api/chat", () => {
     const res = await POST(
       makeReq({
         messages: [{ role: "user", content: "What is present perfect?" }],
+        stream: false,
       })
     );
     expect(res.status).toBe(200);
@@ -122,7 +159,6 @@ describe("POST /api/chat", () => {
         textContent: "This is the document content",
       } as Awaited<ReturnType<typeof getDocument>>)
     );
-    mockGenerate.mockReturnValueOnce(Promise.resolve("Answer with context"));
     const res = await POST(
       makeReq({
         messages: [{ role: "user", content: "Explain this" }],
@@ -134,13 +170,13 @@ describe("POST /api/chat", () => {
     expect(mockGetDocument).toHaveBeenCalledWith("user-1", "doc-1");
   });
 
-  test("returns 503 on quota exhaustion", async () => {
+  test("returns 503 on quota exhaustion in non-streaming mode", async () => {
     mockRequireSession.mockReturnValueOnce(
       Promise.resolve({ userId: "user-1" })
     );
     mockGenerate.mockRejectedValueOnce(new MockGeminiQuotaExhaustedError());
     const res = await POST(
-      makeReq({ messages: [{ role: "user", content: "Help" }] })
+      makeReq({ messages: [{ role: "user", content: "Help" }], stream: false })
     );
     expect(res.status).toBe(503);
   });

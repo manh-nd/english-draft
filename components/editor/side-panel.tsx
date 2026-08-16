@@ -14,12 +14,14 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  Square,
   Wand2,
   X,
   BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ChatMarkdown } from "@/components/ui/chat-markdown";
 import type { ChatMessage } from "@/lib/ai/chat";
 
 interface SidePanelProps {
@@ -39,10 +41,11 @@ const MIN_PANEL_WIDTH = 280;
 
 type VocabSaveState = "idle" | "saving" | "saved";
 
-interface AssistantMessage extends ChatMessage {
+export interface AssistantMessage extends ChatMessage {
   role: "assistant";
   vocabSaveState?: VocabSaveState;
   copied?: boolean;
+  isStreaming?: boolean;
 }
 
 type DisplayMessage = ChatMessage | AssistantMessage;
@@ -114,12 +117,21 @@ export function SidePanel({
   // Panel resizing state
   const [width, setWidth] = useState<number>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(LOCAL_STORAGE_WIDTH_KEY);
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= MIN_PANEL_WIDTH) {
-          return parsed;
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_WIDTH_KEY);
+        if (saved) {
+          const parsed = parseInt(saved, 10);
+          const max = Math.min(720, Math.floor(window.innerWidth * 0.6));
+          if (
+            !isNaN(parsed) &&
+            parsed >= MIN_PANEL_WIDTH &&
+            parsed <= Math.max(MIN_PANEL_WIDTH, max)
+          ) {
+            return parsed;
+          }
         }
+      } catch {
+        // Ignore localStorage access errors
       }
     }
     return DEFAULT_PANEL_WIDTH;
@@ -129,6 +141,7 @@ export function SidePanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -143,48 +156,144 @@ export function SidePanel({
   useEffect(
     () => () => {
       abortRef.current?.abort();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
     },
     []
   );
 
-  // Drag handle resizing logic
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const maxWidth = Math.min(720, Math.floor(window.innerWidth * 0.6));
-      const newWidth = Math.max(
-        MIN_PANEL_WIDTH,
-        Math.min(maxWidth, window.innerWidth - moveEvent.clientX)
-      );
-      setWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-    };
-
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  }, []);
-
-  // Save width preference to localStorage when resizing ends
-  useEffect(() => {
-    if (!isResizing && typeof window !== "undefined") {
+  const persistWidth = useCallback((finalWidth: number) => {
+    if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(LOCAL_STORAGE_WIDTH_KEY, width.toString());
+        localStorage.setItem(LOCAL_STORAGE_WIDTH_KEY, finalWidth.toString());
       } catch {
         // Ignore storage errors
       }
     }
-  }, [width, isResizing]);
+  }, []);
+
+  // Drag handle resizing logic with Pointer Capture & rAF throttling
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+
+      const target = e.currentTarget;
+      try {
+        target.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore capture errors on unsupported environments
+      }
+
+      setIsResizing(true);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+        }
+
+        rafRef.current = requestAnimationFrame(() => {
+          const maxWidth = Math.min(720, Math.floor(window.innerWidth * 0.6));
+          const clampedMax = Math.max(MIN_PANEL_WIDTH, maxWidth);
+          const calculatedWidth = window.innerWidth - moveEvent.clientX;
+          const newWidth = Math.max(
+            MIN_PANEL_WIDTH,
+            Math.min(clampedMax, calculatedWidth)
+          );
+          setWidth(newWidth);
+        });
+      };
+
+      const onPointerUp = (upEvent: PointerEvent) => {
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+
+        try {
+          if (target.hasPointerCapture(upEvent.pointerId)) {
+            target.releasePointerCapture(upEvent.pointerId);
+          }
+        } catch {
+          // Ignore release errors
+        }
+
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerUp);
+
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        setIsResizing(false);
+
+        const maxWidth = Math.min(720, Math.floor(window.innerWidth * 0.6));
+        const clampedMax = Math.max(MIN_PANEL_WIDTH, maxWidth);
+        const calculatedWidth = window.innerWidth - upEvent.clientX;
+        const finalWidth = Math.max(
+          MIN_PANEL_WIDTH,
+          Math.min(clampedMax, calculatedWidth)
+        );
+        setWidth(finalWidth);
+        persistWidth(finalWidth);
+      };
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+    },
+    [persistWidth]
+  );
+
+  const handleSeparatorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const maxWidth =
+        typeof window !== "undefined"
+          ? Math.max(
+              MIN_PANEL_WIDTH,
+              Math.min(720, Math.floor(window.innerWidth * 0.6))
+            )
+          : 720;
+      let nextWidth: number | null = null;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        nextWidth = Math.min(maxWidth, width + 20);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextWidth = Math.max(MIN_PANEL_WIDTH, width - 20);
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        nextWidth = MIN_PANEL_WIDTH;
+      } else if (e.key === "End") {
+        e.preventDefault();
+        nextWidth = maxWidth;
+      }
+
+      if (nextWidth !== null) {
+        setWidth(nextWidth);
+        persistWidth(nextWidth);
+      }
+    },
+    [width, persistWidth]
+  );
+
+  const handleStopGeneration = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsLoading(false);
+    setMessages((prev) =>
+      prev.map((msg) =>
+        isAssistantMessage(msg) && msg.isStreaming
+          ? { ...msg, isStreaming: false }
+          : msg
+      )
+    );
+  }, []);
 
   const sendMessageWithContent = useCallback(
     async (rawContent: string) => {
@@ -204,7 +313,16 @@ export function SidePanel({
         { role: "user", content: aiContent },
       ];
 
-      setMessages((prev) => [...prev, userMessage]);
+      // Add user message and initial assistant message with streaming state
+      setMessages((prev) => [
+        ...prev,
+        userMessage,
+        {
+          role: "assistant",
+          content: "",
+          isStreaming: true,
+        } as AssistantMessage,
+      ]);
       setInput("");
       setError(null);
       setIsLoading(true);
@@ -217,7 +335,10 @@ export function SidePanel({
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream, application/json",
+          },
           body: JSON.stringify({
             messages: aiMessages,
             includeDocument,
@@ -226,26 +347,130 @@ export function SidePanel({
           signal: controller.signal,
         });
 
-        const result = (await response.json().catch(() => null)) as {
-          reply?: string;
-          error?: string;
-        } | null;
-
-        if (!response.ok || typeof result?.reply !== "string") {
+        if (!response.ok && !response.body) {
+          const result = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(result?.error ?? GENERIC_ERROR);
         }
 
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: result.reply! } as AssistantMessage,
-        ]);
+        const contentType = response.headers.get("content-type") ?? "";
+
+        // Check if SSE stream response
+        if (contentType.includes("text/event-stream") && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let streamBuffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            streamBuffer += decoder.decode(value, { stream: true });
+            const events = streamBuffer.split("\n\n");
+            streamBuffer = events.pop() ?? "";
+
+            for (const event of events) {
+              const trimmed = event.trim();
+              if (!trimmed.startsWith("data:")) continue;
+
+              const payloadStr = trimmed.replace(/^data:\s*/, "").trim();
+              if (payloadStr === "[DONE]") {
+                setMessages((prev) =>
+                  prev.map((msg, i) =>
+                    i === prev.length - 1 && isAssistantMessage(msg)
+                      ? { ...msg, isStreaming: false }
+                      : msg
+                  )
+                );
+                continue;
+              }
+
+              try {
+                const parsed = JSON.parse(payloadStr) as {
+                  text?: string;
+                  error?: string;
+                };
+
+                if (parsed.error) {
+                  setError(parsed.error);
+                } else if (typeof parsed.text === "string") {
+                  setMessages((prev) => {
+                    const next = [...prev];
+                    const lastMsg = next[next.length - 1];
+                    if (lastMsg && isAssistantMessage(lastMsg)) {
+                      next[next.length - 1] = {
+                        ...lastMsg,
+                        content: lastMsg.content + parsed.text,
+                        isStreaming: true,
+                      };
+                    }
+                    return next;
+                  });
+                }
+              } catch {
+                // Ignore parse errors on partial chunks
+              }
+            }
+          }
+        } else {
+          // Standard JSON fallback
+          const result = (await response.json().catch(() => null)) as {
+            reply?: string;
+            error?: string;
+          } | null;
+
+          if (!response.ok || typeof result?.reply !== "string") {
+            throw new Error(result?.error ?? GENERIC_ERROR);
+          }
+
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastMsg = next[next.length - 1];
+            if (lastMsg && isAssistantMessage(lastMsg)) {
+              next[next.length - 1] = {
+                ...lastMsg,
+                content: result.reply!,
+                isStreaming: false,
+              };
+            } else {
+              next.push({
+                role: "assistant",
+                content: result.reply!,
+                isStreaming: false,
+              });
+            }
+            return next;
+          });
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : GENERIC_ERROR);
+        // Remove empty assistant placeholder if failed completely
+        setMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (
+            lastMsg &&
+            isAssistantMessage(lastMsg) &&
+            !lastMsg.content.trim()
+          ) {
+            return prev.slice(0, -1);
+          }
+          return prev.map((m) =>
+            isAssistantMessage(m) ? { ...m, isStreaming: false } : m
+          );
+        });
       } finally {
         if (abortRef.current === controller) {
           abortRef.current = null;
           setIsLoading(false);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              isAssistantMessage(msg) && msg.isStreaming
+                ? { ...msg, isStreaming: false }
+                : msg
+            )
+          );
         }
       }
     },
@@ -324,23 +549,25 @@ export function SidePanel({
   );
 
   const handleCopyMessage = useCallback((text: string, msgIndex: number) => {
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(text);
+    try {
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } catch {
+      // Ignore clipboard permission errors in test runner environments
+    }
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === msgIndex && isAssistantMessage(m) ? { ...m, copied: true } : m
+      )
+    );
+    setTimeout(() => {
       setMessages((prev) =>
         prev.map((m, i) =>
-          i === msgIndex && isAssistantMessage(m) ? { ...m, copied: true } : m
+          i === msgIndex && isAssistantMessage(m) ? { ...m, copied: false } : m
         )
       );
-      setTimeout(() => {
-        setMessages((prev) =>
-          prev.map((m, i) =>
-            i === msgIndex && isAssistantMessage(m)
-              ? { ...m, copied: false }
-              : m
-          )
-        );
-      }, 2000);
-    }
+    }, 2000);
   }, []);
 
   const handleClearHistory = useCallback(() => {
@@ -364,8 +591,10 @@ export function SidePanel({
   return (
     <aside
       style={{ width: `${width}px` }}
-      className={`relative flex shrink-0 flex-col border-l border-border bg-background transition-[width] duration-75 ${
-        isResizing ? "select-none" : ""
+      className={`relative flex shrink-0 flex-col border-l border-border bg-background ${
+        isResizing
+          ? "transition-none select-none"
+          : "transition-[width] duration-150 ease-out"
       }`}
       aria-label="Side Panel"
     >
@@ -374,19 +603,23 @@ export function SidePanel({
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize Side Panel"
+        aria-valuenow={width}
+        aria-valuemin={MIN_PANEL_WIDTH}
+        aria-valuemax={
+          typeof window !== "undefined"
+            ? Math.max(
+                MIN_PANEL_WIDTH,
+                Math.min(720, Math.floor(window.innerWidth * 0.6))
+              )
+            : 720
+        }
         tabIndex={0}
-        onMouseDown={handleMouseDown}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") {
-            setWidth((w) => Math.min(720, w + 20));
-          } else if (e.key === "ArrowRight") {
-            setWidth((w) => Math.max(MIN_PANEL_WIDTH, w - 20));
-          }
-        }}
-        className={`group absolute -left-1 top-0 bottom-0 z-30 flex w-2.5 cursor-col-resize items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        onPointerDown={handlePointerDown}
+        onKeyDown={handleSeparatorKeyDown}
+        className={`group absolute -left-1.5 top-0 bottom-0 z-30 flex w-3 cursor-col-resize items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isResizing ? "bg-primary/20" : "hover:bg-primary/10"
         }`}
-        title="Drag to resize panel"
+        title="Drag or use arrow keys to resize panel"
       >
         <div
           className={`flex h-8 w-1 items-center justify-center rounded-full transition-all ${
@@ -526,9 +759,12 @@ export function SidePanel({
               key={i}
               className="flex justify-start animate-in fade-in duration-150"
             >
-              <div className="group/bubble relative max-w-[90%]">
+              <div className="group/bubble relative max-w-[92%]">
                 <div className="rounded-2xl rounded-tl-sm bg-muted/80 border border-border/50 px-3.5 py-2.5 text-xs text-foreground shadow-sm leading-relaxed break-words">
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <ChatMarkdown
+                    content={msg.content}
+                    isStreaming={isAssistantMessage(msg) && msg.isStreaming}
+                  />
                 </div>
 
                 {/* Message action bar */}
@@ -566,7 +802,8 @@ export function SidePanel({
                     disabled={
                       isAssistantMessage(msg) &&
                       (msg.vocabSaveState === "saving" ||
-                        msg.vocabSaveState === "saved")
+                        msg.vocabSaveState === "saved" ||
+                        msg.isStreaming)
                     }
                     aria-label={
                       isAssistantMessage(msg) && msg.vocabSaveState === "saved"
@@ -603,15 +840,6 @@ export function SidePanel({
               </div>
             </div>
           )
-        )}
-
-        {isLoading && (
-          <div className="flex justify-start animate-in fade-in duration-150">
-            <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm bg-muted/80 border border-border/50 px-3.5 py-2.5 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin text-primary" />
-              <span>Thinking…</span>
-            </div>
-          </div>
         )}
 
         {error && (
@@ -662,15 +890,28 @@ export function SidePanel({
             disabled={isLoading}
             aria-label="Message input"
           />
-          <Button
-            size="icon-xs"
-            className="absolute right-1.5 bottom-1.5 size-7 rounded-md"
-            onClick={() => void sendMessage()}
-            disabled={!input.trim() || isLoading}
-            aria-label="Send message"
-          >
-            <Send className="size-3.5" />
-          </Button>
+          {isLoading ? (
+            <Button
+              size="icon-xs"
+              variant="outline"
+              className="absolute right-1.5 bottom-1.5 size-7 rounded-md text-destructive hover:bg-destructive/10"
+              onClick={handleStopGeneration}
+              aria-label="Stop generation"
+              title="Stop generation"
+            >
+              <Square className="size-3 fill-destructive" />
+            </Button>
+          ) : (
+            <Button
+              size="icon-xs"
+              className="absolute right-1.5 bottom-1.5 size-7 rounded-md"
+              onClick={() => void sendMessage()}
+              disabled={!input.trim() || isLoading}
+              aria-label="Send message"
+            >
+              <Send className="size-3.5" />
+            </Button>
+          )}
         </div>
       </div>
     </aside>
