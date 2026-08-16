@@ -47,8 +47,11 @@ export function calculateNextInterval(
     nextInterval = 1;
     nextEaseFactor = easeFactor;
   } else {
-    // Correct response — apply SM-2 interval progression
-    if (interval <= 1) {
+    // Correct response — SM-2 interval progression:
+    //   first review (interval=0 or fresh): 1 day
+    //   second review (interval=1): 6 days
+    //   subsequent: interval × ease factor
+    if (interval <= 0) {
       nextInterval = 1;
     } else if (interval === 1) {
       nextInterval = 6;

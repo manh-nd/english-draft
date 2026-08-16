@@ -42,6 +42,7 @@ export function CorrectionBankClient({
   const [errorTypeFilter, setErrorTypeFilter] =
     useState<ErrorTypeFilter>("all");
   const [starredOnly, setStarredOnly] = useState(false);
+  const [dateSortAsc, setDateSortAsc] = useState(false); // false = newest first (default)
 
   const setIdPending = (id: string, pending: boolean) => {
     setPendingIds((prev) => {
@@ -76,13 +77,19 @@ export function CorrectionBankClient({
   }, []);
 
   const filtered = useMemo(() => {
-    return corrections.filter((c) => {
+    const list = corrections.filter((c) => {
       if (starredOnly && !c.starred) return false;
       if (errorTypeFilter !== "all" && c.errorType !== errorTypeFilter)
         return false;
       return true;
     });
-  }, [corrections, errorTypeFilter, starredOnly]);
+    return dateSortAsc
+      ? [...list].sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+      : list; // already ordered newest-first by the DB query
+  }, [corrections, errorTypeFilter, starredOnly, dateSortAsc]);
 
   if (corrections.length === 0) {
     return (
@@ -139,6 +146,15 @@ export function CorrectionBankClient({
             className={`size-3 ${starredOnly ? "fill-amber-400 text-amber-400" : ""}`}
           />
           Starred only
+        </button>
+        <button
+          onClick={() => setDateSortAsc((v) => !v)}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          aria-label={
+            dateSortAsc ? "Sorted: oldest first" : "Sorted: newest first"
+          }
+        >
+          {dateSortAsc ? "↑ Oldest" : "↓ Newest"}
         </button>
       </div>
 

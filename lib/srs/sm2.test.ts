@@ -16,9 +16,14 @@ describe("calculateNextInterval", () => {
     expect(result.easeFactor).toBe(2.5);
   });
 
-  test("first correct response (interval=1, rating=5) gives interval=1", () => {
-    const result = calculateNextInterval(1, 2.5, 5);
+  test("first correct response (interval=0) stays at 1", () => {
+    const result = calculateNextInterval(0, 2.5, 5);
     expect(result.interval).toBe(1);
+  });
+
+  test("second correct response (interval=1, rating=5) advances to 6", () => {
+    const result = calculateNextInterval(1, 2.5, 5);
+    expect(result.interval).toBe(6);
   });
 
   test("correct response increases ease factor for rating 5", () => {

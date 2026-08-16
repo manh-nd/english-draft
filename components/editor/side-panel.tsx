@@ -26,10 +26,11 @@ interface SidePanelProps {
 
 const GENERIC_ERROR = "The AI could not respond. Try again.";
 
+type VocabSaveState = "idle" | "saving" | "saved";
+
 interface AssistantMessage extends ChatMessage {
   role: "assistant";
-  savedVocab?: boolean;
-  savingVocab?: boolean;
+  vocabSaveState?: VocabSaveState;
 }
 
 type DisplayMessage = ChatMessage | AssistantMessage;
@@ -50,6 +51,7 @@ export function SidePanel({
   const [isLoading, setIsLoading] = useState(false);
   const [includeDocument, setIncludeDocument] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vocabError, setVocabError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -143,11 +145,28 @@ export function SidePanel({
   ]);
 
   const handleSaveVocab = useCallback(
-    async (msgIndex: number, phrase: string) => {
+    async (msgIndex: number) => {
+      // phrase = last user message before this AI reply
+      // definition = this AI reply
+      const precedingUserMsg = [...messages]
+        .slice(0, msgIndex)
+        .reverse()
+        .find((m) => m.role === "user");
+      const phrase = precedingUserMsg?.content.trim() ?? "";
+      const definition = messages[msgIndex]?.content ?? "";
+
+      if (!phrase) {
+        setVocabError(
+          "Could not determine the phrase — no preceding question found."
+        );
+        return;
+      }
+
+      setVocabError(null);
       setMessages((prev) =>
         prev.map((m, i) =>
           i === msgIndex && isAssistantMessage(m)
-            ? { ...m, savingVocab: true }
+            ? { ...m, vocabSaveState: "saving" as VocabSaveState }
             : m
         )
       );
@@ -155,27 +174,28 @@ export function SidePanel({
         const res = await fetch("/api/vocabulary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phrase, documentId }),
+          body: JSON.stringify({ phrase, definition, documentId }),
         });
         if (!res.ok) throw new Error("Failed to save");
         setMessages((prev) =>
           prev.map((m, i) =>
             i === msgIndex && isAssistantMessage(m)
-              ? { ...m, savedVocab: true, savingVocab: false }
+              ? { ...m, vocabSaveState: "saved" as VocabSaveState }
               : m
           )
         );
       } catch {
+        setVocabError("Could not save the vocabulary item. Try again.");
         setMessages((prev) =>
           prev.map((m, i) =>
             i === msgIndex && isAssistantMessage(m)
-              ? { ...m, savingVocab: false }
+              ? { ...m, vocabSaveState: "idle" as VocabSaveState }
               : m
           )
         );
       }
     },
-    [documentId]
+    [documentId, messages]
   );
 
   const handleKeyDown = useCallback(
@@ -282,23 +302,25 @@ export function SidePanel({
                 </div>
                 {/* Save phrase button */}
                 <button
-                  onClick={() => void handleSaveVocab(i, msg.content)}
+                  onClick={() => void handleSaveVocab(i)}
                   disabled={
                     isAssistantMessage(msg) &&
-                    (msg.savingVocab === true || msg.savedVocab === true)
+                    (msg.vocabSaveState === "saving" ||
+                      msg.vocabSaveState === "saved")
                   }
                   aria-label={
-                    isAssistantMessage(msg) && msg.savedVocab
+                    isAssistantMessage(msg) && msg.vocabSaveState === "saved"
                       ? "Saved to Vocabulary"
-                      : "Save AI response as vocabulary phrase"
+                      : "Save phrase + AI explanation as Vocabulary Item"
                   }
+                  title="Save the phrase you asked about (from your previous message) as a Vocabulary Item"
                   className={`mt-1 flex items-center gap-1 text-[11px] transition-colors ${
-                    isAssistantMessage(msg) && msg.savedVocab
+                    isAssistantMessage(msg) && msg.vocabSaveState === "saved"
                       ? "text-primary"
                       : "text-muted-foreground opacity-0 hover:text-foreground group-hover/bubble:opacity-100"
                   }`}
                 >
-                  {isAssistantMessage(msg) && msg.savedVocab ? (
+                  {isAssistantMessage(msg) && msg.vocabSaveState === "saved" ? (
                     <>
                       <Check className="size-3" />
                       Saved
@@ -324,6 +346,9 @@ export function SidePanel({
         )}
         {error && (
           <p className="text-center text-xs text-destructive">{error}</p>
+        )}
+        {vocabError && (
+          <p className="text-center text-xs text-destructive">{vocabError}</p>
         )}
         <div ref={bottomRef} />
       </div>
