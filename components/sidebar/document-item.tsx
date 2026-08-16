@@ -76,12 +76,22 @@ export function DocumentItem({
   return (
     <>
       <MenuItem ref={setNodeRef} style={style}>
-        <MenuButton isActive={isActive} onClick={onClick} className="group/doc">
+        <MenuButton
+          isActive={isActive}
+          onClick={isRenaming ? undefined : onClick}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsRenaming(true);
+          }}
+          className="group/doc"
+        >
           <span
             {...attributes}
             {...listeners}
             className="mr-1 cursor-grab opacity-0 transition-opacity group-hover/doc:opacity-50"
             onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
           >
             <GripVertical />
           </span>

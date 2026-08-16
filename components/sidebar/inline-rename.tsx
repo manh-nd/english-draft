@@ -30,6 +30,7 @@ export function InlineRename({ value, onCommit, onCancel }: InlineRenameProps) {
       }}
       className="h-6"
       onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
     />
   );
 }

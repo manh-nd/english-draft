@@ -267,6 +267,34 @@ describe("Sidebar UI Components - Regression & Hydration Tests", () => {
       expect(getFolderNameInput()).not.toBeNull();
     });
 
+    test("double-clicking a Document opens inline rename and commits on Enter", async () => {
+      renderAppSidebar();
+      const docButton = screen.getByRole("button", {
+        name: /active document/i,
+      });
+
+      fireEvent.doubleClick(docButton);
+
+      const renameInput = await waitFor(() => {
+        const input = document.querySelector<HTMLInputElement>(
+          "input:not(#sidebar-search)"
+        );
+        expect(input).not.toBeNull();
+        return input as HTMLInputElement;
+      });
+
+      expect(renameInput.value).toBe("Active document");
+      fireEvent.change(renameInput, { target: { value: "New Title" } });
+      fireEvent.keyDown(renameInput, { key: "Enter" });
+
+      await waitFor(() =>
+        expect(renameDocument).toHaveBeenCalledWith(
+          "active-document",
+          "New Title"
+        )
+      );
+    });
+
     test("signing out uses the muted Button treatment and returns to login", async () => {
       renderAppSidebar();
       const button = screen.getByRole("button", { name: "Sign out" });

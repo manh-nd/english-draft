@@ -82,7 +82,15 @@ export function FolderItem({
       <SidebarMenuItem ref={setNodeRef}>
         <Collapsible open={open} onOpenChange={setOpen}>
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton className="group/folder" isActive={isOver}>
+            <SidebarMenuButton
+              className="group/folder"
+              isActive={isOver}
+              onDoubleClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsRenaming(true);
+              }}
+            >
               {open ? <FolderOpen /> : <Folder />}
               {isRenaming ? (
                 <InlineRename
