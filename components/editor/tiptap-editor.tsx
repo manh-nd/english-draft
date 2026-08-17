@@ -12,7 +12,6 @@ import {
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Highlight from "@tiptap/extension-highlight";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import FileHandler from "@tiptap/extension-file-handler";
@@ -168,8 +167,10 @@ export default function TiptapEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable heading from StarterKit — we use it via slash commands
-        // but StarterKit's heading still works, just keep defaults
+        link: {
+          openOnClick: true,
+          autolink: true,
+        },
       }),
       Table.configure({ resizable: true }),
       TableRow,
@@ -178,10 +179,6 @@ export default function TiptapEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Highlight.configure({ multicolor: true }),
-      Link.configure({
-        openOnClick: true,
-        autolink: true,
-      }),
       Placeholder.configure({
         placeholder: "Start writing…",
       }),
